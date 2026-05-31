@@ -8,7 +8,6 @@ import CostTab from '../components/tabs/CostTab'
 import TimelineTab from '../components/tabs/TimelineTab'
 import LineItemsTab from '../components/tabs/LineItemsTab'
 import ResourceTab from '../components/tabs/ResourceTab'
-import StreamConfigWizard from '../components/estimator/StreamConfigWizard'
 import { encodeEstimateToUrl } from '../lib/shareIO'
 import { generateEstimatePrint } from '../lib/printExport'
 import type { RiskBand, Currency } from '../types'
@@ -42,7 +41,7 @@ const BAND_COLORS: Record<RiskBand, string> = {
 }
 
 export default function Estimator() {
-  const { getActive, updateField, setWorkType, setStreams, forkEstimate } = useEstimatorStore()
+  const { getActive, updateField, setWorkType, forkEstimate } = useEstimatorStore()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('lineitems')
   const [copied, setCopied] = useState(false)
@@ -211,37 +210,12 @@ export default function Estimator() {
 
       {/* Tab content */}
       <main className="flex-1 max-w-6xl mx-auto w-full px-6 py-6">
-        {/* Inline configurator — shown instead of tab content on first open */}
-        {!est.wizardCompleted ? (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-sm font-bold text-slate-900">Configure your project streams</div>
-                <div className="text-xs text-slate-400 mt-0.5">Answer a few questions to set up the right work stream structure</div>
-              </div>
-            </div>
-            <StreamConfigWizard
-              initialConfig={est.streamConfig}
-              workType={est.workType}
-              closeLabel="Skip for now"
-              onWorkTypeChange={wt => updateField('workType', wt)}
-              onApply={(streams, config, roles) => {
-                setStreams(streams, config, roles)
-                updateField('wizardCompleted', true)
-              }}
-              onClose={() => updateField('wizardCompleted', true)}
-            />
-          </div>
-        ) : (
-          <>
-            {activeTab === 'lineitems' && <LineItemsTab />}
-            {activeTab === 'streams'   && <StreamsTab />}
-            {activeTab === 'risk'      && <RiskTab />}
-            {activeTab === 'cost'      && <CostTab />}
-            {activeTab === 'timeline'  && <TimelineTab />}
-            {activeTab === 'resource'  && <ResourceTab />}
-          </>
-        )}
+        {activeTab === 'lineitems' && <LineItemsTab />}
+        {activeTab === 'streams'   && <StreamsTab />}
+        {activeTab === 'risk'      && <RiskTab />}
+        {activeTab === 'cost'      && <CostTab />}
+        {activeTab === 'timeline'  && <TimelineTab />}
+        {activeTab === 'resource'  && <ResourceTab />}
       </main>
     </div>
   )
