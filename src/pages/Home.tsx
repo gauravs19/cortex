@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, FolderOpen, BarChart3, ArrowRight, Settings } from 'lucide-react'
 import { useEstimatorStore } from '../store/estimatorStore'
+import { decodeEstimateFromUrl, clearShareFromUrl } from '../lib/shareIO'
 import LZString from 'lz-string'
 import type { Estimate } from '../types'
 
@@ -21,6 +22,16 @@ export default function Home() {
   const navigate = useNavigate()
   const [selectedType, setSelectedType] = useState('')
   const [importError, setImportError] = useState('')
+
+  // Decode shared estimate from URL on load
+  useEffect(() => {
+    const shared = decodeEstimateFromUrl()
+    if (shared) {
+      clearShareFromUrl()
+      const id = importFromJson(shared)
+      navigate(`/estimate/${id}`)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleNew = () => {
     const id = createEstimate('New estimate', selectedType)

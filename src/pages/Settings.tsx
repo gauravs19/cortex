@@ -1,8 +1,10 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, RotateCcw } from 'lucide-react'
+import { ArrowLeft, RotateCcw, Plus, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
 import { useSettingsStore } from '../store/settingsStore'
-import { ROLES, CURRENCY_SYMBOLS } from '../data/roles'
-import type { RoleId, Currency } from '../types'
+import { ROLES, CURRENCY_SYMBOLS, CATEGORY_LABELS } from '../data/roles'
+import { DEFAULT_WORK_ITEM_BANK } from '../data/workItemBank'
+import type { RoleId, Currency, WorkItemDefinition } from '../types'
 
 const CURRENCIES: { value: Currency; label: string; symbol: string }[] = [
   { value: 'USD', label: 'US Dollar',       symbol: '$' },
@@ -213,9 +215,175 @@ export default function Settings() {
           </div>
         </Section>
 
+        {/* Standards bank editor */}
+        <BankEditor />
+
         <div className="h-8" />
       </div>
     </div>
+  )
+}
+
+// ── Standards bank editor ─────────────────────────────────────
+
+function BankEditor() {
+  const { settings, updateSettings } = useSettingsStore()
+  const [expanded, setExpanded] = useState<string | null>(null)
+  const [newItemName, setNewItemName] = useState('')
+  const [newItemCat, setNewItemCat] = useState('backend')
+
+  const custom: WorkItemDefinition[] = settings.customBank ?? []
+
+  const addCustomItem = () => {
+    if (!newItemName.trim()) return
+    const def: WorkItemDefinition = {
+      id: `custom-${Date.now()}`,
+      name: newItemName.trim(),
+      category: newItemCat as WorkItemDefinition['category'],
+      description: 'Custom work item',
+      custom: true,
+      sizes: [
+        { code: 'S', label: 'Small', description: 'Simple case', efforts: { SD: 1 } },
+        { code: 'M', label: 'Medium', description: 'Standard case', efforts: { SD: 2 } },
+        { code: 'L', label: 'Large', description: 'Complex case', efforts: { SD: 4 } },
+      ],
+    }
+    updateSettings({ customBank: [...custom, def] })
+    setNewItemName('')
+  }
+
+  const removeCustomItem = (id: string) => {
+    updateSettings({ customBank: custom.filter(d => d.id !== id) })
+  }
+
+  const updateCustomSize = (defId: string, sizeCode: string, role: RoleId, days: number) => {
+    updateSettings({
+      customBank: custom.map(d => {
+        if (d.id !== defId) return d
+        return {
+          ...d,
+          sizes: d.sizes.map(s =>
+            s.code === sizeCode
+              ? { ...s, efforts: { ...s.efforts, [role]: days > 0 ? days : undefined } }
+              : s
+          ),
+        }
+      }),
+    })
+  }
+
+  return (
+    <Section title="Standards bank" sub="Default work item types (built-in) and your custom definitions. Edit efforts per role per size.">
+      {/* Built-in list */}
+      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden mb-4">
+        <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-500 uppercase tracking-wider">
+          Built-in definitions ({DEFAULT_WORK_ITEM_BANK.length})
+        </div>
+        <div className="divide-y divide-slate-100 max-h-64 overflow-y-auto">
+          {DEFAULT_WORK_ITEM_BANK.map(def => (
+            <div key={def.id}>
+              <button
+                onClick={() => setExpanded(expanded === def.id ? null : def.id)}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-slate-50 transition-colors"
+              >
+                {expanded === def.id ? <ChevronDown size={12} className="text-slate-400" /> : <ChevronRight size={12} className="text-slate-400" />}
+                <span className="text-xs font-semibold text-slate-700 flex-1">{def.name}</span>
+                <span className="text-xs text-slate-400">{CATEGORY_LABELS[def.category] ?? def.category}</span>
+                <span className="text-xs text-slate-400">{def.sizes.map(s => s.code).join(' / ')}</span>
+              </button>
+              {expanded === def.id && (
+                <div className="px-4 pb-3 space-y-2 bg-slate-50/50">
+                  <div className="text-xs text-slate-400 pb-1">{def.description}</div>
+                  {def.sizes.map(sz => (
+                    <div key={sz.code} className="bg-white rounded-lg border border-slate-200 px-3 py-2">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="text-xs font-black text-indigo-600 w-6">{sz.code}</span>
+                        <span className="text-xs font-semibold text-slate-700">{sz.label}</span>
+                        <span className="text-xs text-slate-400">— {sz.description}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {Object.entries(sz.efforts).map(([role, days]) => (
+                          <div key={role} className="flex items-center gap-1 bg-indigo-50 rounded px-2 py-0.5">
+                            <span className="text-xs font-bold text-indigo-600">{role}</span>
+                            <span className="text-xs text-slate-500">{days}d</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Custom items */}
+      <div className="bg-white border border-slate-200 rounded-xl overflow-hidden mb-4">
+        <div className="px-4 py-3 bg-slate-50 border-b border-slate-100 text-xs font-bold text-slate-500 uppercase tracking-wider">
+          Custom definitions ({custom.length})
+        </div>
+        {custom.length === 0 ? (
+          <div className="px-4 py-6 text-xs text-slate-400 text-center">No custom items yet — add one below</div>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {custom.map(def => (
+              <div key={def.id}>
+                <div className="flex items-center gap-3 px-4 py-2.5">
+                  <button onClick={() => setExpanded(expanded === def.id ? null : def.id)} className="text-slate-400">
+                    {expanded === def.id ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                  </button>
+                  <span className="text-xs font-semibold text-slate-700 flex-1">{def.name}</span>
+                  <span className="text-xs text-slate-400">{CATEGORY_LABELS[def.category] ?? def.category}</span>
+                  <button onClick={() => removeCustomItem(def.id)} className="p-1 text-slate-300 hover:text-red-400 transition-colors"><Trash2 size={12} /></button>
+                </div>
+                {expanded === def.id && (
+                  <div className="px-4 pb-3 space-y-2 bg-slate-50/50">
+                    {def.sizes.map(sz => (
+                      <div key={sz.code} className="bg-white rounded-lg border border-slate-200 px-3 py-2">
+                        <div className="text-xs font-bold text-indigo-600 mb-1.5">{sz.code} — {sz.label}</div>
+                        <div className="flex flex-wrap gap-2">
+                          {(Object.keys(ROLES) as RoleId[]).map(role => (
+                            <div key={role} className="flex items-center gap-1">
+                              <span className="text-xs text-slate-400 w-6">{role}</span>
+                              <input
+                                type="number" min={0} step={0.5}
+                                value={sz.efforts[role] ?? ''}
+                                placeholder="0"
+                                onChange={e => updateCustomSize(def.id, sz.code, role, parseFloat(e.target.value) || 0)}
+                                className="w-12 text-xs text-center border border-slate-200 rounded py-0.5 focus:outline-none focus:border-indigo-400"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Add custom */}
+      <div className="flex gap-2">
+        <input
+          value={newItemName}
+          onChange={e => setNewItemName(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && addCustomItem()}
+          placeholder="New work item name…"
+          className="flex-1 text-sm border border-slate-200 rounded-xl px-3 py-2.5 focus:outline-none focus:border-indigo-300"
+        />
+        <select value={newItemCat} onChange={e => setNewItemCat(e.target.value)}
+          className="text-xs border border-slate-200 rounded-xl px-2 py-2 focus:outline-none">
+          {Object.entries(CATEGORY_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+        </select>
+        <button onClick={addCustomItem} className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl hover:bg-indigo-700 transition-colors">
+          <Plus size={13} /> Add
+        </button>
+      </div>
+    </Section>
   )
 }
 

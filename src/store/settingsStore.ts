@@ -7,6 +7,7 @@ export interface FirmSettings {
   firmName: string
   currency: Currency
   customBank?: import('../types').WorkItemDefinition[]
+  recentWorkItemIds: string[]   // #11 — recently used in bank picker
   defaultMarginPct: number
   defaultOverheadPct: number
   defaultSprintWeeks: number
@@ -33,6 +34,7 @@ const DEFAULT_RATE_CARD = Object.fromEntries(
 export const DEFAULT_SETTINGS: FirmSettings = {
   firmName: '',
   currency: 'USD',
+  recentWorkItemIds: [],
   defaultMarginPct: 25,
   defaultOverheadPct: 10,
   defaultSprintWeeks: 2,
@@ -58,6 +60,7 @@ export interface SettingsStore {
   setEffortScale: (key: keyof FirmSettings['effortScale'], value: number) => void
   resetRates: () => void
   resetEffortScale: () => void
+  addRecentWorkItem: (id: string) => void  // #11
 }
 
 export const useSettingsStore = create<SettingsStore>()(
@@ -92,6 +95,14 @@ export const useSettingsStore = create<SettingsStore>()(
           settings: {
             ...s.settings,
             effortScale: DEFAULT_SETTINGS.effortScale,
+          },
+        })),
+
+      addRecentWorkItem: (id) =>
+        set(s => ({
+          settings: {
+            ...s.settings,
+            recentWorkItemIds: [id, ...(s.settings.recentWorkItemIds ?? []).filter(x => x !== id)].slice(0, 8),
           },
         })),
     }),

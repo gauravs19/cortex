@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Trash2, ArrowDownToLine, Info } from 'lucide-react'
+import { Plus, Trash2, ArrowDownToLine, Info, AlertTriangle } from 'lucide-react'
 import { useEstimatorStore, calcTotals } from '../../store/estimatorStore'
 import { useSettingsStore } from '../../store/settingsStore'
 import { DEFAULT_WORK_ITEM_BANK, getWorkItemById, computeLineItemEfforts, SIZE_COLORS, CATEGORY_BANK_ORDER } from '../../data/workItemBank'
@@ -12,8 +12,8 @@ function generateId() {
 }
 
 export default function LineItemsTab() {
-  const { getActive, addLineItem, updateLineItem, removeLineItem, syncLineItemsToStreams, updateField } = useEstimatorStore()
-  const { settings } = useSettingsStore()
+  const { getActive, addLineItem, updateLineItem, removeLineItem, syncLineItemsToStreams, updateField, addAssumption, removeAssumption } = useEstimatorStore()
+  const { settings, addRecentWorkItem } = useSettingsStore()
   const est = getActive()
 
   const [showPicker, setShowPicker] = useState(false)
@@ -149,7 +149,8 @@ export default function LineItemsTab() {
         <LineItemPicker
           bank={bank}
           streams={est.streams}
-          onAdd={(item) => { addLineItem(item); setShowPicker(false) }}
+          onAdd={(item) => { addLineItem(item); addRecentWorkItem(item.definitionId); setShowPicker(false) }}
+          recentIds={settings.recentWorkItemIds ?? []}
           onClose={() => setShowPicker(false)}
           filterCat={filterCat}
           setFilterCat={setFilterCat}
@@ -218,6 +219,84 @@ export default function LineItemsTab() {
           </div>
         </div>
       )}
+
+      {/* #6 Assumptions log */}
+      <AssumptionsPanel
+        assumptions={est.assumptions ?? []}
+        onAdd={addAssumption}
+        onRemove={removeAssumption}
+      />
+
+      {/* #12 Estimate notes */}
+      <div className="bg-white border border-slate-200 rounded-xl p-5">
+        <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Estimate notes</div>
+        <textarea
+          value={est.notes ?? ''}
+          onChange={e => updateField('notes', e.target.value)}
+          placeholder="Any context, caveats, or notes for this estimate…"
+          rows={3}
+          className="w-full text-sm text-slate-700 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-300 resize-none"
+        />
+      </div>
+    </div>
+  )
+}
+
+// ── Assumptions panel (#6) ────────────────────────────────────
+
+const IMPACT_COLORS: Record<string, string> = {
+  low:    'bg-green-100 text-green-700',
+  medium: 'bg-amber-100 text-amber-700',
+  high:   'bg-red-100 text-red-700',
+}
+
+function AssumptionsPanel({ assumptions, onAdd, onRemove }: {
+  assumptions: import('../../types').Assumption[]
+  onAdd: (text: string, impact: import('../../types').Assumption['impact']) => void
+  onRemove: (id: string) => void
+}) {
+  const [text, setText] = useState('')
+  const [impact, setImpact] = useState<'low' | 'medium' | 'high'>('medium')
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl p-5">
+      <div className="flex items-center gap-2 mb-3">
+        <AlertTriangle size={14} className="text-amber-500" />
+        <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Assumptions</div>
+        <span className="text-xs text-slate-400">({assumptions.length})</span>
+      </div>
+      {assumptions.length > 0 && (
+        <div className="space-y-2 mb-3">
+          {assumptions.map(a => (
+            <div key={a.id} className="flex items-start gap-3 bg-slate-50 rounded-lg px-3 py-2.5">
+              <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${IMPACT_COLORS[a.impact]}`}>{a.impact}</span>
+              <span className="text-xs text-slate-700 flex-1 leading-relaxed">{a.text}</span>
+              <button onClick={() => onRemove(a.id)} className="text-slate-300 hover:text-red-400 transition-colors shrink-0"><Trash2 size={11} /></button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="flex gap-2">
+        <input
+          value={text}
+          onChange={e => setText(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && text.trim()) { onAdd(text.trim(), impact); setText('') } }}
+          placeholder="e.g. Client provides test data by week 3…"
+          className="flex-1 text-xs border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-300"
+        />
+        <select value={impact} onChange={e => setImpact(e.target.value as typeof impact)}
+          className="text-xs border border-slate-200 rounded-lg px-2 focus:outline-none">
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+        </select>
+        <button
+          onClick={() => { if (text.trim()) { onAdd(text.trim(), impact); setText('') } }}
+          className="flex items-center gap-1 px-3 py-1.5 bg-amber-500 text-white text-xs font-bold rounded-lg hover:bg-amber-600 transition-colors"
+        >
+          <Plus size={12} /> Add
+        </button>
+      </div>
     </div>
   )
 }
@@ -342,7 +421,7 @@ function LineItemGroup({ label, items, bank, streams, rateCard, mult, sym, onUpd
 
 // ── Line Item Picker ───────────────────────────────────────────
 
-function LineItemPicker({ bank, streams, onAdd, onClose, filterCat, setFilterCat, search, setSearch }: {
+function LineItemPicker({ bank, streams, onAdd, onClose, filterCat, setFilterCat, search, setSearch, recentIds }: {
   bank: WorkItemDefinition[]
   streams: ReturnType<typeof useEstimatorStore.getState>['estimates'][0]['streams']
   onAdd: (item: EstimateLineItem) => void
@@ -351,6 +430,7 @@ function LineItemPicker({ bank, streams, onAdd, onClose, filterCat, setFilterCat
   setFilterCat: (c: string) => void
   search: string
   setSearch: (s: string) => void
+  recentIds: string[]
 }) {
   const [selected, setSelected] = useState<WorkItemDefinition | null>(null)
   const [selectedSize, setSelectedSize] = useState<SizeCode>('M')
@@ -361,6 +441,7 @@ function LineItemPicker({ bank, streams, onAdd, onClose, filterCat, setFilterCat
   const categories = [...new Set(bank.map(d => d.category))]
     .sort((a, b) => CATEGORY_BANK_ORDER.indexOf(a) - CATEGORY_BANK_ORDER.indexOf(b))
 
+  const recentDefs = recentIds.map(id => bank.find(d => d.id === id)).filter(Boolean) as WorkItemDefinition[]
   const filtered = bank.filter(d => {
     if (filterCat !== 'all' && d.category !== filterCat) return false
     if (search && !d.name.toLowerCase().includes(search.toLowerCase())) return false
@@ -423,6 +504,19 @@ function LineItemPicker({ bank, streams, onAdd, onClose, filterCat, setFilterCat
               className="w-full text-xs border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-300 mb-2"
             />
           </div>
+          {recentDefs.length > 0 && !search && filterCat === 'all' && (
+            <>
+              <div className="px-4 py-1.5 text-xs font-semibold text-slate-400 bg-slate-50 uppercase tracking-wider">Recently used</div>
+              {recentDefs.map(def => (
+                <button key={`r-${def.id}`}
+                  onClick={() => { setSelected(def); setSelectedSize(def.sizes[Math.floor(def.sizes.length / 2)].code as SizeCode) }}
+                  className={`w-full text-left px-4 py-2 border-b border-slate-100 transition-colors ${selected?.id === def.id ? 'bg-indigo-50 border-l-2 border-l-indigo-500' : 'hover:bg-slate-50'}`}>
+                  <div className="text-xs font-semibold text-indigo-700">{def.name}</div>
+                </button>
+              ))}
+              <div className="px-4 py-1.5 text-xs font-semibold text-slate-400 bg-slate-50 uppercase tracking-wider">All</div>
+            </>
+          )}
           {filtered.map(def => (
             <button
               key={def.id}
