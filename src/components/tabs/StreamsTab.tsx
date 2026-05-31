@@ -10,7 +10,7 @@ const CATEGORY_ORDER: StreamCategory[] = [
 ]
 
 export default function StreamsTab() {
-  const { getActive, setEffort, setStreamMonthlyRate, addStream, removeStream, renameStream, toggleRole, setStreams } = useEstimatorStore()
+  const { getActive, setEffort, setStreamMonthlyRate, addStream, removeStream, renameStream, toggleRole, setStreams, updateField } = useEstimatorStore()
   const est = getActive()
   const [newStreamName, setNewStreamName] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -52,6 +52,7 @@ export default function StreamsTab() {
         <StreamConfigWizard
           initialConfig={est.streamConfig}
           workType={est.workType}
+          onWorkTypeChange={wt => updateField('workType', wt)}
           onApply={(streams, config, roles) => {
             setStreams(streams, config, roles)
             setShowWizard(false)
