@@ -21,28 +21,28 @@ export interface RoleDef {
 
 export interface WorkItemSize {
   code: SizeCode
-  label: string           // "Simple" | "Standard" | "Complex"
-  description: string     // "1-2 fields, GET only" | "Standard CRUD with validation"
-  efforts: Partial<Record<RoleId, number>>  // days per role
+  label: string
+  description: string
+  efforts: Partial<Record<RoleId, number>>
 }
 
 export interface WorkItemDefinition {
   id: string
-  name: string            // "API Endpoint" | "Database Table" | "UI Screen"
+  name: string
   category: StreamCategory
   description: string
   sizes: WorkItemSize[]
-  custom?: boolean        // user-defined, not from defaults
+  custom?: boolean
 }
 
 export interface EstimateLineItem {
   id: string
-  label: string           // user-given name: "User login", "Products list API"
-  definitionId: string    // references WorkItemDefinition.id
+  label: string
+  definitionId: string
   sizeCode: SizeCode
-  streamId?: string       // optional stream assignment
-  quantity: number        // default 1, e.g. "5 API endpoints"
-  notes?: string
+  streamId?: string
+  quantity: number
+  notes?: string          // #12
 }
 
 // ── Streams ───────────────────────────────────────────────────
@@ -52,8 +52,8 @@ export interface EstimateStream {
   name: string
   category: StreamCategory
   costType: CostType
-  efforts: Partial<Record<RoleId, number>>  // capex: days per role
-  monthlyRate?: number                       // opex: £/month base
+  efforts: Partial<Record<RoleId, number>>
+  monthlyRate?: number
 }
 
 export interface StreamConfig {
@@ -66,6 +66,19 @@ export interface StreamConfig {
   hasChangeManagement: boolean
 }
 
+// ── Resource plan (#1) ────────────────────────────────────────
+
+// month index (0-based) → role → headcount
+export type ResourcePlan = Record<number, Partial<Record<RoleId, number>>>
+
+// ── Assumptions (#6) ─────────────────────────────────────────
+
+export interface Assumption {
+  id: string
+  text: string
+  impact: 'low' | 'medium' | 'high'
+}
+
 // ── Estimate ──────────────────────────────────────────────────
 
 export type EstimationMode = 'quick' | 'detailed'
@@ -76,15 +89,15 @@ export interface Estimate {
   clientName: string
   workType: string
   riskBand: RiskBand
-  estimationMode: EstimationMode  // 'quick' = stream matrix | 'detailed' = line items
-  wizardCompleted: boolean        // false = show configurator wizard on open
+  estimationMode: EstimationMode
+  wizardCompleted: boolean
   streamConfig?: StreamConfig
   cadexDealId?: string
-  // Stream matrix (manual or synced from line items)
   streams: EstimateStream[]
   activeRoles: RoleId[]
   rateCard: Partial<Record<RoleId, number>>
   currency: Currency
+  billingCurrency?: Currency        // #9 — if different from delivery currency
   targetMarginPct: number
   contingencyPct: number
   contingencyLocked: boolean
@@ -93,11 +106,12 @@ export interface Estimate {
   overheadPct: number
   projectMonths: number
   startDate?: string
-  // Line items (detailed bottom-up)
   lineItems: EstimateLineItem[]
-  // Top-down constraints
-  targetBudget?: number   // in GBP base (0 = not set)
-  targetEffort?: number   // in days (0 = not set)
+  targetBudget?: number
+  targetEffort?: number
+  resourcePlan?: ResourcePlan       // #1
+  assumptions: Assumption[]         // #6
+  notes?: string                    // #12 estimate-level notes
   createdAt: string
   updatedAt: string
 }

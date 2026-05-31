@@ -1,13 +1,16 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { BarChart3, Shield, DollarSign, Calendar, Download, Settings, List } from 'lucide-react'
+import { BarChart3, Shield, DollarSign, Calendar, Download, Settings, List, Share2, Check, Users, FileText } from 'lucide-react'
 import { useEstimatorStore, calcTotals } from '../store/estimatorStore'
 import StreamsTab from '../components/tabs/StreamsTab'
 import RiskTab from '../components/tabs/RiskTab'
 import CostTab from '../components/tabs/CostTab'
 import TimelineTab from '../components/tabs/TimelineTab'
 import LineItemsTab from '../components/tabs/LineItemsTab'
+import ResourceTab from '../components/tabs/ResourceTab'
 import StreamConfigWizard from '../components/estimator/StreamConfigWizard'
+import { encodeEstimateToUrl } from '../lib/shareIO'
+import { generateEstimatePrint } from '../lib/printExport'
 import type { RiskBand } from '../types'
 
 const TABS = [
@@ -16,6 +19,7 @@ const TABS = [
   { id: 'risk',      label: 'Risk & Effort',  icon: Shield },
   { id: 'cost',      label: 'Cost Build-up',  icon: DollarSign },
   { id: 'timeline',  label: 'Timeline',       icon: Calendar },
+  { id: 'resource',  label: 'Resource Plan',  icon: Users },
 ]
 
 const WORK_TYPES = [
@@ -38,9 +42,11 @@ const BAND_COLORS: Record<RiskBand, string> = {
 }
 
 export default function Estimator() {
-  const { getActive, updateField, setWorkType, setStreams } = useEstimatorStore()
+  const { getActive, updateField, setWorkType, setStreams, forkEstimate } = useEstimatorStore()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('lineitems')
+  const [copied, setCopied] = useState(false)
+  const [saveFlash, setSaveFlash] = useState(false)
   const est = getActive()
 
   if (!est) return null
@@ -77,6 +83,12 @@ export default function Estimator() {
       ? `${sym}${Math.round(n).toLocaleString()}`
       : `${sym}${Math.round(n / 1000)}k`
 
+  // #10 auto-save flash
+  const wrappedUpdate: typeof updateField = (k, v) => {
+    updateField(k, v)
+    setSaveFlash(true); setTimeout(() => setSaveFlash(false), 1200)
+  }
+
   const handleExport = () => {
     const json = JSON.stringify(est, null, 2)
     const blob = new Blob([json], { type: 'application/json' })
@@ -103,16 +115,20 @@ export default function Estimator() {
             <div className="flex items-center gap-3 min-w-0">
               <input
                 value={est.name}
-                onChange={e => updateField('name', e.target.value)}
+                onChange={e => wrappedUpdate('name', e.target.value)}
                 placeholder="Estimate name…"
                 className="text-base font-semibold text-slate-800 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-400 focus:outline-none py-0.5 min-w-32 max-w-64"
               />
               <input
                 value={est.clientName}
-                onChange={e => updateField('clientName', e.target.value)}
+                onChange={e => wrappedUpdate('clientName', e.target.value)}
                 placeholder="Client name…"
                 className="text-sm text-slate-500 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-400 focus:outline-none py-0.5 max-w-40"
               />
+              {/* #10 Auto-save indicator */}
+              <span className={`text-xs transition-all duration-500 ${saveFlash ? 'text-green-500 opacity-100' : 'text-slate-300 opacity-60'}`}>
+                {saveFlash ? '✓ Saved' : 'Auto-saved'}
+              </span>
             </div>
           </div>
 
@@ -131,15 +147,51 @@ export default function Estimator() {
                 {est.riskBand} risk
               </span>
             )}
+            {/* #7 Fork */}
+            <button
+              onClick={() => { const id = forkEstimate(); if (id) navigate(`/estimate/${id}`) }}
+              title="Fork this estimate into a new copy"
+              className="text-xs font-semibold text-slate-500 hover:text-slate-800 px-3 py-2 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors"
+            >
+              Fork
+            </button>
+            {/* #9 Billing currency */}
+            <select
+              value={est.billingCurrency ?? est.currency}
+              onChange={e => wrappedUpdate('billingCurrency', e.target.value as import('../types').Currency)}
+              title="Billing currency (may differ from delivery cost currency)"
+              className="text-xs text-slate-600 border border-slate-200 rounded-lg px-2 py-2 bg-white focus:outline-none focus:border-indigo-300"
+            >
+              <option value="USD">$ USD bill</option>
+              <option value="GBP">£ GBP bill</option>
+              <option value="EUR">€ EUR bill</option>
+              <option value="INR">₹ INR bill</option>
+            </select>
+            <button
+              onClick={async () => {
+                const url = encodeEstimateToUrl(est)
+                await navigator.clipboard.writeText(url).catch(() => {})
+                setCopied(true); setTimeout(() => setCopied(false), 2000)
+              }}
+              className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-indigo-600 px-3 py-2 rounded-lg border border-slate-200 hover:border-indigo-300 transition-colors"
+            >
+              {copied ? <Check size={13} className="text-green-600" /> : <Share2 size={13} />}
+              {copied ? 'Copied!' : 'Share'}
+            </button>
+            <button
+              onClick={() => generateEstimatePrint(est, totals.sym, totals.mult)}
+              className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-indigo-600 px-3 py-2 rounded-lg border border-slate-200 hover:border-indigo-300 transition-colors"
+            >
+              <FileText size={13} /> Print
+            </button>
             <button
               onClick={handleExport}
               className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-indigo-600 px-3 py-2 rounded-lg border border-slate-200 hover:border-indigo-300 transition-colors"
             >
-              <Download size={13} /> Export JSON
+              <Download size={13} /> Export
             </button>
             <button
               onClick={() => navigate('/settings')}
-              title="Settings"
               className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 px-3 py-2 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors"
             >
               <Settings size={13} /> Settings
@@ -191,6 +243,23 @@ export default function Estimator() {
           <div className="h-4 w-px bg-indigo-700" />
           <SummaryPill label="Duration" value={`${totals.calendarWeeks}w`} />
           <SummaryPill label="Sprints" value={`${totals.sprints}`} />
+          {/* #8 Budget gap */}
+          {(est.targetBudget ?? 0) > 0 && (() => {
+            const budgetInCurrency = est.targetBudget! * totals.mult
+            const delta = budgetInCurrency - totals.sellPrice
+            const over = delta < 0
+            return (
+              <>
+                <div className="h-4 w-px bg-indigo-700" />
+                <div className="text-center">
+                  <div className={`text-sm font-black ${over ? 'text-red-400' : 'text-green-400'}`}>
+                    {over ? '▲' : '▼'} {totals.sym}{Math.round(Math.abs(delta) / 1000)}k
+                  </div>
+                  <div className="text-xs text-indigo-400 mt-0.5">{over ? 'over budget' : 'under budget'}</div>
+                </div>
+              </>
+            )
+          })()}
         </div>
         {est.estimationMode === 'detailed' && (est.lineItems ?? []).length === 0 && (
           <div className="max-w-6xl mx-auto px-6 pb-2 text-xs text-amber-300">
@@ -229,6 +298,7 @@ export default function Estimator() {
         {activeTab === 'risk'      && <RiskTab />}
         {activeTab === 'cost'      && <CostTab />}
         {activeTab === 'timeline'  && <TimelineTab />}
+        {activeTab === 'resource'  && <ResourceTab />}
       </main>
     </div>
   )
