@@ -48,6 +48,7 @@ function createEstimate(name = '', workType = ''): Estimate {
     overheadPct: settings.defaultOverheadPct,
     projectMonths: settings.defaultProjectMonths,
     lineItems: [],
+    features: [],
     targetBudget: 0,
     targetEffort: 0,
     assumptions: [],
@@ -78,6 +79,11 @@ export interface EstimatorStore {
   updateLineItem: (id: string, patch: Partial<import('../types').EstimateLineItem>) => void
   removeLineItem: (id: string) => void
   syncLineItemsToStreams: () => void
+  // Features
+  addFeature: (name: string) => string
+  renameFeature: (id: string, name: string) => void
+  removeFeature: (id: string) => void
+  toggleFeatureCollapsed: (id: string) => void
   // Assumptions (#6)
   addAssumption: (text: string, impact: import('../types').Assumption['impact']) => void
   removeAssumption: (id: string) => void
@@ -250,6 +256,7 @@ export const useEstimatorStore = create<EstimatorStore>()(
           ...data,
           id: generateId(),
           lineItems: data.lineItems ?? [],
+          features: data.features ?? [],
           estimationMode: data.estimationMode ?? 'detailed',
           wizardCompleted: data.wizardCompleted ?? true, // imported = treat as complete
           createdAt: new Date().toISOString(),
@@ -337,6 +344,62 @@ export const useEstimatorStore = create<EstimatorStore>()(
         }))
       },
 
+      addFeature: (name) => {
+        const { activeId } = get()
+        if (!activeId) return ''
+        const id = generateId()
+        set(s => ({
+          estimates: s.estimates.map(e =>
+            e.id === activeId
+              ? { ...e, features: [...(e.features ?? []), { id, name }], updatedAt: new Date().toISOString() }
+              : e
+          ),
+        }))
+        return id
+      },
+
+      renameFeature: (id, name) => {
+        const { activeId } = get()
+        if (!activeId) return
+        set(s => ({
+          estimates: s.estimates.map(e =>
+            e.id === activeId
+              ? { ...e, features: (e.features ?? []).map(f => f.id === id ? { ...f, name } : f), updatedAt: new Date().toISOString() }
+              : e
+          ),
+        }))
+      },
+
+      removeFeature: (id) => {
+        const { activeId } = get()
+        if (!activeId) return
+        set(s => ({
+          estimates: s.estimates.map(e =>
+            e.id === activeId
+              ? {
+                  ...e,
+                  features: (e.features ?? []).filter(f => f.id !== id),
+                  // unassign items from removed feature
+                  lineItems: (e.lineItems ?? []).map(li => li.featureId === id ? { ...li, featureId: undefined } : li),
+                  updatedAt: new Date().toISOString(),
+                }
+              : e
+          ),
+        }))
+      },
+
+      toggleFeatureCollapsed: (id) => {
+        const { activeId } = get()
+        if (!activeId) return
+        set(s => ({
+          estimates: s.estimates.map(e =>
+            e.id === activeId
+              ? { ...e, features: (e.features ?? []).map(f => f.id === id ? { ...f, collapsed: !f.collapsed } : f), updatedAt: new Date().toISOString() }
+              : e
+          ),
+        }))
+      },
+
       addAssumption: (text, impact) => {
         const { activeId } = get()
         if (!activeId) return
@@ -393,6 +456,7 @@ export const useEstimatorStore = create<EstimatorStore>()(
           estimationMode: e.estimationMode ?? 'quick',
           wizardCompleted: e.wizardCompleted ?? true,
           lineItems: e.lineItems ?? [],
+          features: e.features ?? [],
           assumptions: e.assumptions ?? [],
           notes: e.notes ?? '',
         }))
