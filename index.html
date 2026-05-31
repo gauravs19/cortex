@@ -1,14 +1,291 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/cortex/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>cortex</title>
-    <script type="module" crossorigin src="/cortex/assets/index-CYOWoei2.js"></script>
-    <link rel="stylesheet" crossorigin href="/cortex/assets/index-CtQwIgwY.css">
-  </head>
-  <body>
-    <div id="root"></div>
-  </body>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CORTEX — IT Consulting Deal Estimator</title>
+<meta name="description" content="CORTEX turns a deal qualification into a costed, phased estimate in under 30 minutes. CapEx + OpEx. Platform-specific streams. Risk-adjusted contingency. Free and browser-only.">
+<meta property="og:title" content="CORTEX — Deal Estimator for IT Consulting">
+<meta property="og:description" content="From qualified deal to costed estimate. Platform splits, CapEx/OpEx, Gantt timeline. Free, browser-only.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --indigo: #4f46e5;
+    --indigo-dark: #3730a3;
+    --violet: #7c3aed;
+    --amber: #d97706;
+    --green: #16a34a;
+    --slate-900: #0f172a;
+    --slate-700: #334155;
+    --slate-500: #64748b;
+    --slate-400: #94a3b8;
+    --slate-200: #e2e8f0;
+    --slate-100: #f1f5f9;
+    --slate-50: #f8fafc;
+    --white: #ffffff;
+  }
+  body { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--slate-700); background: var(--white); line-height: 1.6; }
+  a { color: inherit; text-decoration: none; }
+  img { max-width: 100%; }
+
+  /* Nav */
+  nav { position: sticky; top: 0; z-index: 50; background: rgba(255,255,255,0.95); backdrop-filter: blur(8px); border-bottom: 1px solid var(--slate-200); padding: 0 24px; height: 56px; display: flex; align-items: center; justify-content: space-between; }
+  .nav-brand { font-size: 18px; font-weight: 900; color: var(--slate-900); letter-spacing: -0.5px; }
+  .nav-brand span { color: var(--indigo); }
+  .nav-links { display: flex; align-items: center; gap: 24px; }
+  .nav-links a { font-size: 13px; font-weight: 500; color: var(--slate-500); transition: color 0.15s; }
+  .nav-links a:hover { color: var(--slate-900); }
+  .btn-nav { background: var(--indigo); color: white !important; font-weight: 700 !important; padding: 8px 18px; border-radius: 10px; font-size: 13px !important; transition: background 0.15s !important; }
+  .btn-nav:hover { background: var(--indigo-dark) !important; }
+
+  /* Hero */
+  .hero { background: linear-gradient(135deg, var(--slate-900) 0%, #1e1b4b 60%, #2e1065 100%); color: white; padding: 80px 24px 64px; text-align: center; }
+  .hero-eyebrow { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #a5b4fc; background: rgba(99,102,241,0.2); border: 1px solid rgba(99,102,241,0.3); padding: 6px 16px; border-radius: 100px; margin-bottom: 28px; }
+  .hero h1 { font-size: clamp(36px, 6vw, 60px); font-weight: 900; line-height: 1.08; letter-spacing: -1.5px; margin-bottom: 20px; }
+  .hero h1 em { font-style: normal; color: #a5b4fc; }
+  .hero-sub { font-size: clamp(16px, 2.5vw, 19px); color: #cbd5e1; max-width: 600px; margin: 0 auto 40px; line-height: 1.6; }
+  .hero-cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn-primary { background: var(--indigo); color: white; font-weight: 700; padding: 14px 28px; border-radius: 12px; font-size: 15px; transition: background 0.15s, transform 0.1s; display: inline-flex; align-items: center; gap-8px; }
+  .btn-primary:hover { background: #4338ca; transform: translateY(-1px); }
+  .btn-secondary { background: rgba(255,255,255,0.1); color: white; font-weight: 600; padding: 14px 28px; border-radius: 12px; font-size: 15px; border: 1px solid rgba(255,255,255,0.2); transition: background 0.15s; }
+  .btn-secondary:hover { background: rgba(255,255,255,0.15); }
+  .trust-strip { margin-top: 52px; display: flex; gap: 28px; justify-content: center; flex-wrap: wrap; }
+  .trust-item { font-size: 12px; color: #94a3b8; font-weight: 500; display: flex; align-items: center; gap: 6px; }
+  .trust-item::before { content: '✓'; color: #34d399; font-weight: 700; }
+
+  /* Sections */
+  section { padding: 72px 24px; max-width: 1080px; margin: 0 auto; }
+  .section-label { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--indigo); margin-bottom: 12px; }
+  h2 { font-size: clamp(26px, 4vw, 38px); font-weight: 900; color: var(--slate-900); letter-spacing: -0.8px; line-height: 1.15; margin-bottom: 16px; }
+  .section-sub { font-size: 17px; color: var(--slate-500); max-width: 560px; line-height: 1.7; margin-bottom: 48px; }
+
+  /* What it does */
+  .features { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
+  .feature-card { background: var(--slate-50); border: 1px solid var(--slate-200); border-radius: 16px; padding: 24px; }
+  .feature-icon { font-size: 28px; margin-bottom: 14px; }
+  .feature-card h3 { font-size: 15px; font-weight: 700; color: var(--slate-900); margin-bottom: 8px; }
+  .feature-card p { font-size: 13px; color: var(--slate-500); line-height: 1.7; }
+
+  /* How it works */
+  .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
+  .step { background: white; border: 1px solid var(--slate-200); border-radius: 16px; padding: 20px; position: relative; }
+  .step-num { font-size: 13px; font-weight: 900; color: var(--indigo); background: #eef2ff; border: 1px solid #c7d2fe; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; }
+  .step h3 { font-size: 14px; font-weight: 700; color: var(--slate-900); margin-bottom: 6px; }
+  .step p { font-size: 12px; color: var(--slate-500); line-height: 1.6; }
+  .step-arrow { position: absolute; right: -10px; top: 50%; transform: translateY(-50%); color: var(--slate-300); font-size: 16px; font-weight: 700; }
+
+  /* CapEx/OpEx explainer */
+  .cost-split { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 640px) { .cost-split { grid-template-columns: 1fr; } }
+  .capex-card { background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 16px; padding: 28px; }
+  .opex-card  { background: #fffbeb; border: 1px solid #fde68a; border-radius: 16px; padding: 28px; }
+  .cost-card-label { font-size: 11px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; }
+  .capex-card .cost-card-label { color: var(--indigo); }
+  .opex-card  .cost-card-label { color: var(--amber); }
+  .cost-card-title { font-size: 20px; font-weight: 900; color: var(--slate-900); margin-bottom: 8px; }
+  .cost-card-body { font-size: 13px; color: var(--slate-600); line-height: 1.7; }
+  .cost-card-items { margin-top: 16px; display: flex; flex-direction: column; gap: 6px; }
+  .cost-item { font-size: 12px; font-weight: 500; color: var(--slate-600); display: flex; align-items: center; gap: 8px; }
+  .cost-item::before { content: '→'; font-weight: 700; }
+
+  /* CADEX integration */
+  .integration { background: linear-gradient(135deg, #1e1b4b, #312e81); border-radius: 20px; padding: 48px; color: white; display: grid; grid-template-columns: 1fr auto; gap: 32px; align-items: center; }
+  @media (max-width: 640px) { .integration { grid-template-columns: 1fr; } }
+  .integration h2 { color: white; margin-bottom: 12px; }
+  .integration p { color: #c7d2fe; font-size: 15px; line-height: 1.7; }
+  .integration-cta { display: flex; flex-direction: column; gap: 12px; align-items: flex-end; }
+  @media (max-width: 640px) { .integration-cta { align-items: flex-start; } }
+
+  /* CTA section */
+  .cta-section { text-align: center; padding: 80px 24px; background: var(--slate-50); border-top: 1px solid var(--slate-200); }
+  .cta-section h2 { margin-bottom: 12px; }
+  .cta-section p { font-size: 17px; color: var(--slate-500); margin-bottom: 32px; }
+
+  /* Footer */
+  footer { background: var(--slate-900); color: var(--slate-400); padding: 32px 24px; text-align: center; font-size: 13px; }
+  footer a { color: #818cf8; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-brand">CORTEX <span>·</span> <span style="font-size:13px;font-weight:500;color:var(--slate-500)">Deal Estimator</span></div>
+  <div class="nav-links">
+    <a href="#how">How it works</a>
+    <a href="#cost">CapEx &amp; OpEx</a>
+    <a href="https://gauravs19.github.io/cadex/app/" target="_blank">CADEX</a>
+    <a href="https://gauravs19.github.io/cortex/" class="btn-nav">Open app →</a>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="hero-eyebrow">Cost · Rate · Timeline EXecution · v0.1</div>
+  <h1>From qualified deal<br>to <em>costed estimate</em><br>in under 30 minutes.</h1>
+  <p class="hero-sub">CORTEX turns a deal you've qualified into a detailed effort breakdown, cost build-up, and Gantt timeline — ready to put in a proposal.</p>
+  <div class="hero-cta">
+    <a href="https://gauravs19.github.io/cortex/" class="btn-primary">Start estimating →</a>
+    <a href="#how" class="btn-secondary">How it works</a>
+  </div>
+  <div class="trust-strip">
+    <span class="trust-item">Free, always</span>
+    <span class="trust-item">Runs in your browser</span>
+    <span class="trust-item">No login required</span>
+    <span class="trust-item">No data leaves your device</span>
+    <span class="trust-item">Open source</span>
+  </div>
+</div>
+
+<!-- What it does -->
+<section>
+  <div class="section-label">What CORTEX does</div>
+  <h2>Every number a proposal needs,<br>in one place</h2>
+  <p class="section-sub">A 7-question wizard generates a full work stream breakdown. Then you refine it, cost it, and export it.</p>
+  <div class="features">
+    <div class="feature-card">
+      <div class="feature-icon">🗂️</div>
+      <h3>Platform-specific stream splits</h3>
+      <p>Choose your platforms — Web, iOS, Android, React Native, Desktop, API-only. CORTEX generates separate effort streams for each. No more bundling iOS and Android into one number.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">⚙️</div>
+      <h3>Backend broken down properly</h3>
+      <p>Core services, integration layer, legacy adapters, and database design are separate streams. The complexity of your integrations (simple, medium, complex / legacy) scales each stream automatically.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">💰</div>
+      <h3>CapEx and OpEx clearly split</h3>
+      <p>One-time project delivery cost (CapEx) and ongoing running costs (OpEx) are modelled separately. The client sees both: what they're paying for the project, and what they'll pay every month after go-live.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🛡️</div>
+      <h3>Risk-adjusted contingency</h3>
+      <p>Link to a CADEX deal to pull in the risk band automatically. Green deal = 10% contingency. Red deal = 35%. Or set it manually. The cost build-up shows exactly where the buffer sits.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📊</div>
+      <h3>Full cost build-up</h3>
+      <p>Base effort × daily rates, plus contingency, overhead, and target margin — each line visible. Editable rate card per role. Sell price calculated automatically from your margin target.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📅</div>
+      <h3>Gantt timeline</h3>
+      <p>Each work stream gets a bar on a Gantt chart. Phases (Discovery, Build, Test, Go-Live) are colour-coded. Sprint boundaries marked. Horizontally scrollable for long projects.</p>
+    </div>
+  </div>
+</section>
+
+<!-- How it works -->
+<section id="how" style="background: var(--slate-50); max-width: 100%; padding: 72px 24px;">
+  <div style="max-width: 1080px; margin: 0 auto;">
+    <div class="section-label">How it works</div>
+    <h2>Five steps from deal to estimate</h2>
+    <p class="section-sub">Takes 20–30 minutes. State is saved in your browser. Export as JSON at any point.</p>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">01</div>
+        <h3>Configure</h3>
+        <p>Answer 7 questions: platforms, deployment, backend complexity, data needs, infra scope, security, change management.</p>
+        <span class="step-arrow">›</span>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <h3>Refine streams</h3>
+        <p>Edit the auto-generated effort matrix. Add or remove streams. Adjust days per role per stream.</p>
+        <span class="step-arrow">›</span>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <h3>Set risk</h3>
+        <p>Choose a risk band (or import from CADEX). Contingency is applied automatically. Override if needed.</p>
+        <span class="step-arrow">›</span>
+      </div>
+      <div class="step">
+        <div class="step-num">04</div>
+        <h3>Cost it</h3>
+        <p>Edit the rate card, set margin and overhead targets. See CapEx sell price and monthly OpEx side by side.</p>
+        <span class="step-arrow">›</span>
+      </div>
+      <div class="step">
+        <div class="step-num">05</div>
+        <h3>Timeline</h3>
+        <p>Set sprint length, review the Gantt chart by phase and stream. Export the full estimate as JSON.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CapEx / OpEx -->
+<section id="cost">
+  <div class="section-label">Cost modelling</div>
+  <h2>CapEx and OpEx — both in scope</h2>
+  <p class="section-sub">Most IT consulting estimates only model the build cost. CORTEX models both what you charge for delivery and what the client pays to run it.</p>
+  <div class="cost-split">
+    <div class="capex-card">
+      <div class="cost-card-label">CapEx</div>
+      <div class="cost-card-title">One-time project delivery cost</div>
+      <p class="cost-card-body">What you charge for the project. Includes effort, contingency, overhead, and your margin. Broken down by work stream and role.</p>
+      <div class="cost-card-items">
+        <div class="cost-item">Effort × daily rates by role</div>
+        <div class="cost-item">Risk-adjusted contingency</div>
+        <div class="cost-item">Delivery overhead</div>
+        <div class="cost-item">Target margin → sell price</div>
+      </div>
+    </div>
+    <div class="opex-card">
+      <div class="cost-card-label">OpEx</div>
+      <div class="cost-card-title">Ongoing monthly running cost</div>
+      <p class="cost-card-body">What the client pays after go-live. Cloud hosting, monitoring tools, on-prem licensing. Shown monthly, annually, and for the project duration.</p>
+      <div class="cost-card-items">
+        <div class="cost-item">Cloud infrastructure (AWS/Azure/GCP)</div>
+        <div class="cost-item">On-prem hosting &amp; licensing</div>
+        <div class="cost-item">Monitoring &amp; observability tools</div>
+        <div class="cost-item">Annual and project-duration totals</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CADEX integration -->
+<section style="max-width: 100%; padding: 0 24px 72px;">
+  <div style="max-width: 1080px; margin: 0 auto;">
+    <div class="integration">
+      <div>
+        <div style="font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#a5b4fc;margin-bottom:12px;">CADEX integration</div>
+        <h2>Qualify first. Estimate second.</h2>
+        <p>CADEX qualifies your deal — risk band, engagement strategy, quality gate. CORTEX picks up where CADEX stops — turning the qualified deal into a costed estimate.</p>
+        <p style="margin-top:12px;">Click "Estimate in CORTEX" inside any CADEX deal. Risk band and work type transfer automatically. No copy-paste.</p>
+      </div>
+      <div class="integration-cta">
+        <a href="https://gauravs19.github.io/cadex/app/" target="_blank" style="display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:white;font-size:13px;font-weight:600;padding:10px 18px;border-radius:10px;white-space:nowrap;">Open CADEX →</a>
+        <span style="font-size:11px;color:#6366f1;text-align:right;">Free · browser-only · no login</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<div class="cta-section">
+  <div class="section-label" style="display:inline-block;margin-bottom:16px;">Ready?</div>
+  <h2>Build your first estimate</h2>
+  <p>No setup. No account. Open CORTEX and start configuring in 30 seconds.</p>
+  <a href="https://gauravs19.github.io/cortex/" class="btn-primary" style="display:inline-flex;align-items:center;gap:8px;font-size:16px;padding:16px 32px;">
+    Open CORTEX →
+  </a>
+  <div style="margin-top:20px;">
+    <a href="https://github.com/gauravs19/cortex" target="_blank" style="font-size:13px;color:var(--slate-400);">View source on GitHub</a>
+  </div>
+</div>
+
+<footer>
+  <div style="max-width:800px;margin:0 auto;">
+    CORTEX · Cost · Rate · Timeline EXecution · v0.1 &nbsp;·&nbsp;
+    Free, browser-only, open source &nbsp;·&nbsp;
+    <a href="https://github.com/gauravs19/cortex">GitHub</a> &nbsp;·&nbsp;
+    Built alongside <a href="https://gauravs19.github.io/cadex/">CADEX</a>
+  </div>
+</footer>
+
+</body>
 </html>
