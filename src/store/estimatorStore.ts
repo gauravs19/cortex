@@ -4,6 +4,7 @@ import type { Estimate, RoleId, RiskBand, EstimateStream, StreamConfig } from '.
 import { ROLES, DEFAULT_ROLES, CONTINGENCY_BY_BAND } from '../data/roles'
 import { generateStreams, getActiveRolesFromStreams, DEFAULT_CONFIG } from '../data/streamConfigurator'
 import { useSettingsStore } from './settingsStore'
+import { DEFAULT_WORK_ITEM_BANK, getWorkItemById, computeLineItemEfforts } from '../data/workItemBank'
 
 function generateId() {
   return crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)
@@ -41,6 +42,9 @@ function createEstimate(name = '', workType = ''): Estimate {
     workingDaysPerWeek: settings.defaultWorkingDaysPerWeek,
     overheadPct: settings.defaultOverheadPct,
     projectMonths: settings.defaultProjectMonths,
+    lineItems: [],
+    targetBudget: 0,
+    targetEffort: 0,
     createdAt: now,
     updatedAt: now,
   }
@@ -62,6 +66,11 @@ export interface EstimatorStore {
   removeStream: (streamId: string) => void
   renameStream: (streamId: string, name: string) => void
   toggleRole: (role: RoleId) => void
+  // Line items
+  addLineItem: (item: import('../types').EstimateLineItem) => void
+  updateLineItem: (id: string, patch: Partial<import('../types').EstimateLineItem>) => void
+  removeLineItem: (id: string) => void
+  syncLineItemsToStreams: () => void
   setRate: (role: RoleId, rate: number) => void
   setContingency: (pct: number, locked: boolean) => void
   importFromJson: (data: Partial<Estimate>) => string
@@ -226,11 +235,90 @@ export const useEstimatorStore = create<EstimatorStore>()(
           ...createEstimate(data.name, data.workType),
           ...data,
           id: generateId(),
+          lineItems: data.lineItems ?? [],
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         }
         set(s => ({ estimates: [...s.estimates, est], activeId: est.id }))
         return est.id
+      },
+
+      addLineItem: (item) => {
+        const { activeId } = get()
+        if (!activeId) return
+        set(s => ({
+          estimates: s.estimates.map(e =>
+            e.id === activeId
+              ? { ...e, lineItems: [...(e.lineItems ?? []), item], updatedAt: new Date().toISOString() }
+              : e
+          ),
+        }))
+      },
+
+      updateLineItem: (id, patch) => {
+        const { activeId } = get()
+        if (!activeId) return
+        set(s => ({
+          estimates: s.estimates.map(e =>
+            e.id === activeId
+              ? { ...e, lineItems: (e.lineItems ?? []).map(li => li.id === id ? { ...li, ...patch } : li), updatedAt: new Date().toISOString() }
+              : e
+          ),
+        }))
+      },
+
+      removeLineItem: (id) => {
+        const { activeId } = get()
+        if (!activeId) return
+        set(s => ({
+          estimates: s.estimates.map(e =>
+            e.id === activeId
+              ? { ...e, lineItems: (e.lineItems ?? []).filter(li => li.id !== id), updatedAt: new Date().toISOString() }
+              : e
+          ),
+        }))
+      },
+
+      syncLineItemsToStreams: () => {
+        const { activeId, estimates } = get()
+        if (!activeId) return
+        const est = estimates.find(e => e.id === activeId)
+        if (!est || !est.lineItems?.length) return
+
+        const bank = [
+          ...DEFAULT_WORK_ITEM_BANK,
+          ...(useSettingsStore.getState().settings.customBank ?? []),
+        ]
+
+        // Aggregate efforts per stream from line items
+        const streamEfforts: Record<string, Record<string, number>> = {}
+        for (const li of est.lineItems) {
+          const def = getWorkItemById(li.definitionId, bank)
+          if (!def) continue
+          const efforts = computeLineItemEfforts(def, li.sizeCode, li.quantity)
+          const target = li.streamId ?? 'unassigned'
+          if (!streamEfforts[target]) streamEfforts[target] = {}
+          for (const [role, days] of Object.entries(efforts)) {
+            streamEfforts[target][role] = (streamEfforts[target][role] ?? 0) + (days as number)
+          }
+        }
+
+        // Apply to existing streams
+        set(s => ({
+          estimates: s.estimates.map(e => {
+            if (e.id !== activeId) return e
+            const streams = e.streams.map(st => {
+              const agg = streamEfforts[st.id]
+              if (!agg) return st
+              const merged: Record<string, number> = { ...st.efforts as Record<string, number> }
+              for (const [role, days] of Object.entries(agg)) {
+                merged[role] = Math.round(((merged[role] ?? 0) + days) * 10) / 10
+              }
+              return { ...st, efforts: merged as import('../types').EstimateStream['efforts'] }
+            })
+            return { ...e, streams, updatedAt: new Date().toISOString() }
+          }),
+        }))
       },
     }),
     {

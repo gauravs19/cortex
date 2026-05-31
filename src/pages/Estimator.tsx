@@ -1,18 +1,20 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { BarChart3, Shield, DollarSign, Calendar, Download, Settings } from 'lucide-react'
+import { BarChart3, Shield, DollarSign, Calendar, Download, Settings, List } from 'lucide-react'
 import { useEstimatorStore, calcTotals } from '../store/estimatorStore'
 import StreamsTab from '../components/tabs/StreamsTab'
 import RiskTab from '../components/tabs/RiskTab'
 import CostTab from '../components/tabs/CostTab'
 import TimelineTab from '../components/tabs/TimelineTab'
+import LineItemsTab from '../components/tabs/LineItemsTab'
 import type { RiskBand } from '../types'
 
 const TABS = [
-  { id: 'streams',  label: 'Work Streams',    icon: BarChart3 },
-  { id: 'risk',     label: 'Risk & Effort',   icon: Shield },
-  { id: 'cost',     label: 'Cost Build-up',   icon: DollarSign },
-  { id: 'timeline', label: 'Timeline',        icon: Calendar },
+  { id: 'lineitems', label: 'Line Items',     icon: List },
+  { id: 'streams',   label: 'Stream Matrix',  icon: BarChart3 },
+  { id: 'risk',      label: 'Risk & Effort',  icon: Shield },
+  { id: 'cost',      label: 'Cost Build-up',  icon: DollarSign },
+  { id: 'timeline',  label: 'Timeline',       icon: Calendar },
 ]
 
 const WORK_TYPES = [
@@ -161,10 +163,11 @@ export default function Estimator() {
 
       {/* Tab content */}
       <main className="flex-1 max-w-6xl mx-auto w-full px-6 py-6">
-        {activeTab === 'streams'  && <StreamsTab />}
-        {activeTab === 'risk'     && <RiskTab />}
-        {activeTab === 'cost'     && <CostTab />}
-        {activeTab === 'timeline' && <TimelineTab />}
+        {activeTab === 'lineitems' && <LineItemsTab />}
+        {activeTab === 'streams'   && <StreamsTab />}
+        {activeTab === 'risk'      && <RiskTab />}
+        {activeTab === 'cost'      && <CostTab />}
+        {activeTab === 'timeline'  && <TimelineTab />}
       </main>
     </div>
   )
