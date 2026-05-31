@@ -33,7 +33,8 @@ function createEstimate(name = '', workType = ''): Estimate {
     id: generateId(),
     name, clientName: '', workType,
     riskBand: 'unknown',
-    estimationMode: 'detailed',   // default to line items — user picks from bank
+    estimationMode: 'detailed',
+    wizardCompleted: false,       // triggers wizard on first open
     streamConfig: cfg,
     streams,
     activeRoles: roles.length ? roles : DEFAULT_ROLES,
@@ -241,6 +242,7 @@ export const useEstimatorStore = create<EstimatorStore>()(
           id: generateId(),
           lineItems: data.lineItems ?? [],
           estimationMode: data.estimationMode ?? 'detailed',
+          wizardCompleted: data.wizardCompleted ?? true, // imported = treat as complete
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         }
@@ -336,6 +338,7 @@ export const useEstimatorStore = create<EstimatorStore>()(
         state.estimates = state.estimates.map(e => ({
           ...e,
           estimationMode: e.estimationMode ?? 'quick',
+          wizardCompleted: e.wizardCompleted ?? true, // old estimates = already set up
           lineItems: e.lineItems ?? [],
         }))
       },
