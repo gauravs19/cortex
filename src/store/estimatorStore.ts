@@ -1,8 +1,8 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import type { Estimate, RoleId, RiskBand, EstimateStream } from '../types'
+import type { Estimate, RoleId, RiskBand, EstimateStream, StreamConfig } from '../types'
 import { ROLES, DEFAULT_ROLES, CONTINGENCY_BY_BAND } from '../data/roles'
-import { getDefaultStreams } from '../data/streamDefaults'
+import { generateStreams, getActiveRolesFromStreams, DEFAULT_CONFIG } from '../data/streamConfigurator'
 
 function generateId() {
   return crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)
@@ -16,14 +16,16 @@ function defaultRateCard(): Partial<Record<RoleId, number>> {
 
 function createEstimate(name = '', workType = ''): Estimate {
   const now = new Date().toISOString()
+  const cfg = DEFAULT_CONFIG
+  const streams = generateStreams(cfg, workType)
+  const roles = getActiveRolesFromStreams(streams) as RoleId[]
   return {
     id: generateId(),
-    name,
-    clientName: '',
-    workType,
+    name, clientName: '', workType,
     riskBand: 'unknown',
-    streams: getDefaultStreams(workType),
-    activeRoles: DEFAULT_ROLES,
+    streamConfig: cfg,
+    streams,
+    activeRoles: roles.length ? roles : DEFAULT_ROLES,
     rateCard: defaultRateCard(),
     currency: 'GBP',
     targetMarginPct: 25,
@@ -32,6 +34,7 @@ function createEstimate(name = '', workType = ''): Estimate {
     sprintWeeks: 2,
     workingDaysPerWeek: 5,
     overheadPct: 10,
+    projectMonths: 6,
     createdAt: now,
     updatedAt: now,
   }
@@ -40,17 +43,15 @@ function createEstimate(name = '', workType = ''): Estimate {
 export interface EstimatorStore {
   estimates: Estimate[]
   activeId: string | null
-
-  // Lifecycle
   createEstimate: (name?: string, workType?: string) => string
   deleteEstimate: (id: string) => void
   getActive: () => Estimate | undefined
-
-  // Updates
   updateField: <K extends keyof Estimate>(key: K, value: Estimate[K]) => void
   setRiskBand: (band: RiskBand) => void
   setWorkType: (workType: string, resetStreams?: boolean) => void
+  setStreams: (streams: EstimateStream[], config: StreamConfig, roles: string[]) => void
   setEffort: (streamId: string, role: RoleId, days: number) => void
+  setStreamMonthlyRate: (streamId: string, rate: number) => void
   addStream: (name: string) => void
   removeStream: (streamId: string) => void
   renameStream: (streamId: string, name: string) => void
@@ -73,10 +74,7 @@ export const useEstimatorStore = create<EstimatorStore>()(
       },
 
       deleteEstimate: (id) => {
-        set(s => ({
-          estimates: s.estimates.filter(e => e.id !== id),
-          activeId: s.activeId === id ? null : s.activeId,
-        }))
+        set(s => ({ estimates: s.estimates.filter(e => e.id !== id), activeId: s.activeId === id ? null : s.activeId }))
       },
 
       getActive: () => {
@@ -87,11 +85,7 @@ export const useEstimatorStore = create<EstimatorStore>()(
       updateField: (key, value) => {
         const { activeId } = get()
         if (!activeId) return
-        set(s => ({
-          estimates: s.estimates.map(e =>
-            e.id === activeId ? { ...e, [key]: value, updatedAt: new Date().toISOString() } : e
-          ),
-        }))
+        set(s => ({ estimates: s.estimates.map(e => e.id === activeId ? { ...e, [key]: value, updatedAt: new Date().toISOString() } : e) }))
       },
 
       setRiskBand: (band) => {
@@ -99,12 +93,8 @@ export const useEstimatorStore = create<EstimatorStore>()(
         if (!activeId) return
         const est = estimates.find(e => e.id === activeId)
         if (!est) return
-        const contingencyPct = est.contingencyLocked ? est.contingencyPct : CONTINGENCY_BY_BAND[band] ?? 20
-        set(s => ({
-          estimates: s.estimates.map(e =>
-            e.id === activeId ? { ...e, riskBand: band, contingencyPct, updatedAt: new Date().toISOString() } : e
-          ),
-        }))
+        const contingencyPct = est.contingencyLocked ? est.contingencyPct : (CONTINGENCY_BY_BAND[band] ?? 20)
+        set(s => ({ estimates: s.estimates.map(e => e.id === activeId ? { ...e, riskBand: band, contingencyPct, updatedAt: new Date().toISOString() } : e) }))
       },
 
       setWorkType: (workType, resetStreams = false) => {
@@ -113,12 +103,22 @@ export const useEstimatorStore = create<EstimatorStore>()(
         set(s => ({
           estimates: s.estimates.map(e => {
             if (e.id !== activeId) return e
-            const streams = resetStreams ? getDefaultStreams(workType) : e.streams
-            const roles = resetStreams
-              ? [...new Set([...DEFAULT_ROLES, ...streams.flatMap(st => Object.keys(st.efforts) as RoleId[])])]
-              : e.activeRoles
+            const streams = resetStreams ? generateStreams(e.streamConfig ?? DEFAULT_CONFIG, workType) : e.streams
+            const roles = resetStreams ? getActiveRolesFromStreams(streams) as RoleId[] : e.activeRoles
             return { ...e, workType, streams, activeRoles: roles, updatedAt: new Date().toISOString() }
           }),
+        }))
+      },
+
+      setStreams: (streams, config, roles) => {
+        const { activeId } = get()
+        if (!activeId) return
+        set(s => ({
+          estimates: s.estimates.map(e =>
+            e.id === activeId
+              ? { ...e, streams, streamConfig: config, activeRoles: roles as RoleId[], updatedAt: new Date().toISOString() }
+              : e
+          ),
         }))
       },
 
@@ -131,9 +131,7 @@ export const useEstimatorStore = create<EstimatorStore>()(
             return {
               ...e,
               streams: e.streams.map(st =>
-                st.id === streamId
-                  ? { ...st, efforts: { ...st.efforts, [role]: days <= 0 ? undefined : days } }
-                  : st
+                st.id === streamId ? { ...st, efforts: { ...st.efforts, [role]: days <= 0 ? undefined : days } } : st
               ),
               updatedAt: new Date().toISOString(),
             }
@@ -141,15 +139,25 @@ export const useEstimatorStore = create<EstimatorStore>()(
         }))
       },
 
-      addStream: (name) => {
+      setStreamMonthlyRate: (streamId, rate) => {
         const { activeId } = get()
         if (!activeId) return
-        const newStream: EstimateStream = { id: generateId(), name, efforts: {} }
         set(s => ({
           estimates: s.estimates.map(e =>
             e.id === activeId
-              ? { ...e, streams: [...e.streams, newStream], updatedAt: new Date().toISOString() }
+              ? { ...e, streams: e.streams.map(st => st.id === streamId ? { ...st, monthlyRate: rate } : st), updatedAt: new Date().toISOString() }
               : e
+          ),
+        }))
+      },
+
+      addStream: (name) => {
+        const { activeId } = get()
+        if (!activeId) return
+        const newStream: EstimateStream = { id: generateId(), name, category: 'backend', costType: 'capex', efforts: {} }
+        set(s => ({
+          estimates: s.estimates.map(e =>
+            e.id === activeId ? { ...e, streams: [...e.streams, newStream], updatedAt: new Date().toISOString() } : e
           ),
         }))
       },
@@ -159,9 +167,7 @@ export const useEstimatorStore = create<EstimatorStore>()(
         if (!activeId) return
         set(s => ({
           estimates: s.estimates.map(e =>
-            e.id === activeId
-              ? { ...e, streams: e.streams.filter(st => st.id !== streamId), updatedAt: new Date().toISOString() }
-              : e
+            e.id === activeId ? { ...e, streams: e.streams.filter(st => st.id !== streamId), updatedAt: new Date().toISOString() } : e
           ),
         }))
       },
@@ -186,11 +192,7 @@ export const useEstimatorStore = create<EstimatorStore>()(
         const activeRoles = est.activeRoles.includes(role)
           ? est.activeRoles.filter(r => r !== role)
           : [...est.activeRoles, role]
-        set(s => ({
-          estimates: s.estimates.map(e =>
-            e.id === activeId ? { ...e, activeRoles, updatedAt: new Date().toISOString() } : e
-          ),
-        }))
+        set(s => ({ estimates: s.estimates.map(e => e.id === activeId ? { ...e, activeRoles, updatedAt: new Date().toISOString() } : e) }))
       },
 
       setRate: (role, rate) => {
@@ -198,9 +200,7 @@ export const useEstimatorStore = create<EstimatorStore>()(
         if (!activeId) return
         set(s => ({
           estimates: s.estimates.map(e =>
-            e.id === activeId
-              ? { ...e, rateCard: { ...e.rateCard, [role]: rate }, updatedAt: new Date().toISOString() }
-              : e
+            e.id === activeId ? { ...e, rateCard: { ...e.rateCard, [role]: rate }, updatedAt: new Date().toISOString() } : e
           ),
         }))
       },
@@ -210,9 +210,7 @@ export const useEstimatorStore = create<EstimatorStore>()(
         if (!activeId) return
         set(s => ({
           estimates: s.estimates.map(e =>
-            e.id === activeId
-              ? { ...e, contingencyPct: pct, contingencyLocked: locked, updatedAt: new Date().toISOString() }
-              : e
+            e.id === activeId ? { ...e, contingencyPct: pct, contingencyLocked: locked, updatedAt: new Date().toISOString() } : e
           ),
         }))
       },
@@ -243,9 +241,11 @@ export function calcTotals(est: Estimate) {
   const sym = est.currency === 'GBP' ? '£' : est.currency === 'USD' ? '$' : est.currency === 'EUR' ? '€' : '₹'
   const mult = est.currency === 'GBP' ? 1 : est.currency === 'USD' ? 1.27 : est.currency === 'EUR' ? 1.17 : 105
 
-  // Base effort per role
+  const capexStreams = est.streams.filter(s => s.costType !== 'opex')
+  const opexStreams  = est.streams.filter(s => s.costType === 'opex')
+
   const effortByRole: Partial<Record<RoleId, number>> = {}
-  for (const stream of est.streams) {
+  for (const stream of capexStreams) {
     for (const [role, days] of Object.entries(stream.efforts) as [RoleId, number][]) {
       effortByRole[role] = (effortByRole[role] ?? 0) + days
     }
@@ -255,7 +255,6 @@ export function calcTotals(est: Estimate) {
   const contingencyDays = Math.round(baseDays * est.contingencyPct / 100)
   const totalDays = baseDays + contingencyDays
 
-  // Cost
   let baseCost = 0
   for (const [role, days] of Object.entries(effortByRole) as [RoleId, number][]) {
     const rate = (est.rateCard[role] ?? ROLES[role]?.defaultRate ?? 0) * mult
@@ -269,7 +268,10 @@ export function calcTotals(est: Estimate) {
   const margin = sellPrice - costWithOverhead
   const impliedMarginPct = sellPrice > 0 ? (margin / sellPrice) * 100 : 0
 
-  // Duration
+  const opexMonthly = opexStreams.reduce((sum, s) => sum + ((s.monthlyRate ?? 0) * mult), 0)
+  const opexAnnual = opexMonthly * 12
+  const opexProjectTotal = opexMonthly * (est.projectMonths ?? 6)
+
   const activeHeadcount = est.activeRoles.filter(r => (effortByRole[r] ?? 0) > 0).length || 1
   const calendarDays = Math.ceil(totalDays / activeHeadcount)
   const calendarWeeks = Math.ceil(calendarDays / est.workingDaysPerWeek)
@@ -277,20 +279,10 @@ export function calcTotals(est: Estimate) {
 
   return {
     effortByRole,
-    baseDays,
-    contingencyDays,
-    totalDays,
-    baseCost,
-    contingencyCost,
-    totalCost,
-    overhead,
-    costWithOverhead,
-    sellPrice,
-    margin,
-    impliedMarginPct,
-    calendarWeeks,
-    sprints,
-    sym,
-    mult,
+    baseDays, contingencyDays, totalDays,
+    baseCost, contingencyCost, totalCost,
+    overhead, costWithOverhead, sellPrice, margin, impliedMarginPct,
+    opexMonthly, opexAnnual, opexProjectTotal,
+    calendarWeeks, sprints, sym, mult,
   }
 }
