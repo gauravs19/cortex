@@ -53,6 +53,7 @@ export interface Estimate {
   targetBudget?: number; targetEffort?: number
   resourcePlan?: ResourcePlan    // #1
   assumptions: Assumption[]      // #6
-  notes?: string                 // #12
+  notes?: string
+  scopeAnswers?: Record<string, string | string[]>
   createdAt: string; updatedAt: string
 }

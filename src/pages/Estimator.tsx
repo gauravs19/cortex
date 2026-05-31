@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { BarChart3, Shield, DollarSign, Calendar, Download, Settings, List, Share2, Check, Users, FileText } from 'lucide-react'
+import { BarChart3, Shield, DollarSign, Calendar, Download, Settings, List, Share2, Check, Users, FileText, SlidersHorizontal } from 'lucide-react'
 import { useEstimatorStore, calcTotals } from '../store/estimatorStore'
 import StreamsTab from '../components/tabs/StreamsTab'
 import RiskTab from '../components/tabs/RiskTab'
@@ -8,28 +8,19 @@ import CostTab from '../components/tabs/CostTab'
 import TimelineTab from '../components/tabs/TimelineTab'
 import LineItemsTab from '../components/tabs/LineItemsTab'
 import ResourceTab from '../components/tabs/ResourceTab'
+import ScopeTab from '../components/tabs/ScopeTab'
 import { encodeEstimateToUrl } from '../lib/shareIO'
 import { generateEstimatePrint } from '../lib/printExport'
 import type { RiskBand, Currency } from '../types'
 
 const TABS = [
-  { id: 'lineitems', label: 'Line Items',    icon: List },
-  { id: 'streams',   label: 'Stream Matrix', icon: BarChart3 },
-  { id: 'risk',      label: 'Risk & Effort', icon: Shield },
-  { id: 'cost',      label: 'Cost Build-up', icon: DollarSign },
-  { id: 'timeline',  label: 'Timeline',      icon: Calendar },
-  { id: 'resource',  label: 'Resource Plan', icon: Users },
-]
-
-const WORK_TYPES = [
-  { value: '',                       label: 'Generic / Custom' },
-  { value: 'digital-transformation', label: 'Digital Transformation' },
-  { value: 'ai-ml',                  label: 'AI / ML' },
-  { value: 'erp',                    label: 'ERP Implementation' },
-  { value: 'cloud-migration',        label: 'Cloud Migration' },
-  { value: 'data-platform',          label: 'Data Platform' },
-  { value: 'security',               label: 'Security' },
-  { value: 'managed-service',        label: 'Managed Service' },
+  { id: 'scope',     label: 'Scope',          icon: SlidersHorizontal },
+  { id: 'lineitems', label: 'Line Items',      icon: List },
+  { id: 'streams',   label: 'Stream Matrix',   icon: BarChart3 },
+  { id: 'risk',      label: 'Risk & Effort',   icon: Shield },
+  { id: 'cost',      label: 'Cost Build-up',   icon: DollarSign },
+  { id: 'timeline',  label: 'Timeline',        icon: Calendar },
+  { id: 'resource',  label: 'Resource Plan',   icon: Users },
 ]
 
 const BAND_COLORS: Record<RiskBand, string> = {
@@ -41,9 +32,9 @@ const BAND_COLORS: Record<RiskBand, string> = {
 }
 
 export default function Estimator() {
-  const { getActive, updateField, setWorkType, forkEstimate } = useEstimatorStore()
+  const { getActive, updateField, forkEstimate } = useEstimatorStore()
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState('lineitems')
+  const [activeTab, setActiveTab] = useState('scope')
   const [copied, setCopied] = useState(false)
   const [saveFlash, setSaveFlash] = useState(false)
   const est = getActive()
@@ -94,10 +85,12 @@ export default function Estimator() {
           </div>
 
           <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-            <select value={est.workType} onChange={e => setWorkType(e.target.value, true)}
-              className="text-xs text-slate-600 border border-slate-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-indigo-300">
-              {WORK_TYPES.map(w => <option key={w.value} value={w.value}>{w.label}</option>)}
-            </select>
+            {/* Work type shown as badge — edit in Scope tab */}
+            <button onClick={() => setActiveTab('scope')}
+              className="text-xs font-semibold text-slate-500 hover:text-indigo-600 px-2.5 py-1.5 rounded-lg border border-slate-200 hover:border-indigo-300 transition-colors flex items-center gap-1.5">
+              <SlidersHorizontal size={12} />
+              {est.workType ? est.workType.replace('-', ' ') : 'Generic'}
+            </button>
             {est.riskBand !== 'unknown' && (
               <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${BAND_COLORS[est.riskBand]}`}>{est.riskBand} risk</span>
             )}
@@ -156,8 +149,7 @@ export default function Estimator() {
             {est.estimationMode === 'detailed' ? `${(est.lineItems ?? []).length} line items` : 'stream matrix'}
           </div>
           <div className="h-4 w-px bg-indigo-700" />
-          <SummaryPill label="Base effort" value={`${totals.baseDays}d`} />
-          <SummaryPill label="With contingency" value={`${totals.totalDays}d`} highlight />
+          <SummaryPill label="Total effort" value={`${totals.totalDays}d`} highlight />
           <div className="h-4 w-px bg-indigo-700" />
           <SummaryPill label="Direct cost" value={fmt(totals.totalCost)} />
           <SummaryPill label="Sell price" value={fmt(totals.sellPrice)} highlight />
@@ -210,6 +202,7 @@ export default function Estimator() {
 
       {/* Tab content */}
       <main className="flex-1 max-w-6xl mx-auto w-full px-6 py-6">
+        {activeTab === 'scope'     && <ScopeTab />}
         {activeTab === 'lineitems' && <LineItemsTab />}
         {activeTab === 'streams'   && <StreamsTab />}
         {activeTab === 'risk'      && <RiskTab />}
