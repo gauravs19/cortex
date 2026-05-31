@@ -20,7 +20,7 @@ export interface WorkItemDefinition {
 }
 export interface EstimateLineItem {
   id: string; label: string; definitionId: string; sizeCode: SizeCode
-  streamId?: string; quantity: number; notes?: string
+  streamId?: string; featureId?: string; quantity: number; notes?: string
 }
 
 // Streams
@@ -36,8 +36,11 @@ export interface StreamConfig {
 // Resource plan (#1) — month index → role → headcount
 export type ResourcePlan = Record<number, Partial<Record<RoleId, number>>>
 
-// Assumptions (#6)
+// Assumptions
 export interface Assumption { id: string; text: string; impact: 'low' | 'medium' | 'high' }
+
+// Feature groups — requirements/stories that group line items
+export interface EstimateFeature { id: string; name: string; collapsed?: boolean }
 
 export type EstimationMode = 'quick' | 'detailed'
 
@@ -50,6 +53,7 @@ export interface Estimate {
   sprintWeeks: number; workingDaysPerWeek: number; overheadPct: number
   projectMonths: number; startDate?: string
   lineItems: EstimateLineItem[]
+  features: EstimateFeature[]       // requirement/feature groups
   targetBudget?: number; targetEffort?: number
   resourcePlan?: ResourcePlan    // #1
   assumptions: Assumption[]      // #6
