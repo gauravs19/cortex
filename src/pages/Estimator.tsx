@@ -123,9 +123,40 @@ export default function Estimator() {
         </div>
       </header>
 
-      {/* Summary strip */}
+      {/* Mode toggle + summary strip */}
       <div className="bg-indigo-900 text-white">
-        <div className="max-w-6xl mx-auto px-6 py-3 flex items-center gap-8">
+        <div className="max-w-6xl mx-auto px-6 py-3 flex items-center gap-6">
+          {/* Mode toggle */}
+          <div className="flex items-center gap-1 bg-indigo-800 rounded-lg p-1 shrink-0">
+            <button
+              onClick={() => updateField('estimationMode', 'detailed')}
+              className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${
+                est.estimationMode === 'detailed'
+                  ? 'bg-white text-indigo-900'
+                  : 'text-indigo-300 hover:text-white'
+              }`}
+              title="Numbers come from line items in the standards bank"
+            >
+              Detailed
+            </button>
+            <button
+              onClick={() => updateField('estimationMode', 'quick')}
+              className={`px-3 py-1.5 text-xs font-bold rounded-md transition-colors ${
+                est.estimationMode === 'quick'
+                  ? 'bg-white text-indigo-900'
+                  : 'text-indigo-300 hover:text-white'
+              }`}
+              title="Numbers come from the stream matrix"
+            >
+              Quick
+            </button>
+          </div>
+          <div className="text-xs text-indigo-400 shrink-0">
+            {est.estimationMode === 'detailed'
+              ? `from ${(est.lineItems ?? []).length} line items`
+              : 'from stream matrix'}
+          </div>
+          <div className="h-4 w-px bg-indigo-700" />
           <SummaryPill label="Base effort" value={`${totals.baseDays}d`} />
           <SummaryPill label="With contingency" value={`${totals.totalDays}d`} highlight />
           <div className="h-4 w-px bg-indigo-700" />
@@ -136,6 +167,11 @@ export default function Estimator() {
           <SummaryPill label="Duration" value={`${totals.calendarWeeks}w`} />
           <SummaryPill label="Sprints" value={`${totals.sprints}`} />
         </div>
+        {est.estimationMode === 'detailed' && (est.lineItems ?? []).length === 0 && (
+          <div className="max-w-6xl mx-auto px-6 pb-2 text-xs text-amber-300">
+            ⚠ Detailed mode active but no line items added yet — go to Line Items tab and pick from the standards bank
+          </div>
+        )}
       </div>
 
       {/* Tab nav */}

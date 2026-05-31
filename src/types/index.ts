@@ -68,12 +68,15 @@ export interface StreamConfig {
 
 // ── Estimate ──────────────────────────────────────────────────
 
+export type EstimationMode = 'quick' | 'detailed'
+
 export interface Estimate {
   id: string
   name: string
   clientName: string
   workType: string
   riskBand: RiskBand
+  estimationMode: EstimationMode  // 'quick' = stream matrix | 'detailed' = line items
   streamConfig?: StreamConfig
   cadexDealId?: string
   // Stream matrix (manual or synced from line items)
