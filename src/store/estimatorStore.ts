@@ -244,50 +244,6 @@ export const useEstimatorStore = create<EstimatorStore>()(
         }))
       },
 
-      addAssumption: (text, impact) => {
-        const { activeId } = get()
-        if (!activeId) return
-        const id = `A-${Date.now()}`
-        set(s => ({
-          estimates: s.estimates.map(e =>
-            e.id === activeId
-              ? { ...e, assumptions: [...(e.assumptions ?? []), { id, text, impact }], updatedAt: new Date().toISOString() }
-              : e
-          ),
-        }))
-      },
-
-      removeAssumption: (id) => {
-        const { activeId } = get()
-        if (!activeId) return
-        set(s => ({
-          estimates: s.estimates.map(e =>
-            e.id === activeId
-              ? { ...e, assumptions: (e.assumptions ?? []).filter(a => a.id !== id), updatedAt: new Date().toISOString() }
-              : e
-          ),
-        }))
-      },
-
-      forkEstimate: () => {
-        const { activeId, estimates } = get()
-        const src = estimates.find(e => e.id === activeId)
-        if (!src) return ''
-        const copy = { ...src, id: generateId(), name: `${src.name} (copy)`, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
-        set(s => ({ estimates: [...s.estimates, copy], activeId: copy.id }))
-        return copy.id
-      },
-
-      setResourcePlan: (plan) => {
-        const { activeId } = get()
-        if (!activeId) return
-        set(s => ({
-          estimates: s.estimates.map(e =>
-            e.id === activeId ? { ...e, resourcePlan: plan, updatedAt: new Date().toISOString() } : e
-          ),
-        }))
-      },
-
       importFromJson: (data) => {
         const est: Estimate = {
           ...createEstimate(data.name, data.workType),
@@ -378,6 +334,50 @@ export const useEstimatorStore = create<EstimatorStore>()(
             })
             return { ...e, streams, updatedAt: new Date().toISOString() }
           }),
+        }))
+      },
+
+      addAssumption: (text, impact) => {
+        const { activeId } = get()
+        if (!activeId) return
+        const id = `A-${Date.now()}`
+        set(s => ({
+          estimates: s.estimates.map(e =>
+            e.id === activeId
+              ? { ...e, assumptions: [...(e.assumptions ?? []), { id, text, impact }], updatedAt: new Date().toISOString() }
+              : e
+          ),
+        }))
+      },
+
+      removeAssumption: (id) => {
+        const { activeId } = get()
+        if (!activeId) return
+        set(s => ({
+          estimates: s.estimates.map(e =>
+            e.id === activeId
+              ? { ...e, assumptions: (e.assumptions ?? []).filter(a => a.id !== id), updatedAt: new Date().toISOString() }
+              : e
+          ),
+        }))
+      },
+
+      forkEstimate: () => {
+        const { activeId, estimates } = get()
+        const src = estimates.find(e => e.id === activeId)
+        if (!src) return ''
+        const copy = { ...src, id: generateId(), name: `${src.name} (copy)`, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
+        set(s => ({ estimates: [...s.estimates, copy], activeId: copy.id }))
+        return copy.id
+      },
+
+      setResourcePlan: (plan) => {
+        const { activeId } = get()
+        if (!activeId) return
+        set(s => ({
+          estimates: s.estimates.map(e =>
+            e.id === activeId ? { ...e, resourcePlan: plan, updatedAt: new Date().toISOString() } : e
+          ),
         }))
       },
     }),
