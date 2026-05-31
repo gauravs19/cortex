@@ -1,0 +1,244 @@
+import type { EstimateStream, StreamCategory, StreamConfig } from '../types'
+
+function s(
+  id: string,
+  name: string,
+  category: StreamCategory,
+  efforts: Partial<Record<string, number>>,
+  scale = 1.0
+): EstimateStream {
+  const scaled: Partial<Record<string, number>> = {}
+  for (const [k, v] of Object.entries(efforts)) {
+    const rounded = Math.round((v ?? 0) * scale)
+    if (rounded > 0) scaled[k] = rounded
+  }
+  return { id, name, category, costType: 'capex', efforts: scaled as EstimateStream['efforts'] }
+}
+
+function opex(id: string, name: string, category: StreamCategory, monthlyRate: number): EstimateStream {
+  return { id, name, category, costType: 'opex', efforts: {}, monthlyRate }
+}
+
+// ── Configurator questions ────────────────────────────────────
+
+export interface ConfigOption { value: string; label: string; icon: string; hint?: string }
+export interface ConfigQuestion {
+  id: keyof StreamConfig
+  question: string
+  type: 'single' | 'multi' | 'toggle'
+  options?: ConfigOption[]
+}
+
+export const CONFIG_QUESTIONS: ConfigQuestion[] = [
+  {
+    id: 'platforms',
+    question: 'What platforms are you building for?',
+    type: 'multi',
+    options: [
+      { value: 'web',     label: 'Web app',              icon: '🌐', hint: 'Browser-based, responsive' },
+      { value: 'ios',     label: 'iOS (native)',          icon: '🍎', hint: 'Swift / SwiftUI' },
+      { value: 'android', label: 'Android (native)',      icon: '🤖', hint: 'Kotlin / Jetpack Compose' },
+      { value: 'rn',      label: 'Cross-platform mobile', icon: '⚡', hint: 'React Native / Flutter' },
+      { value: 'desktop', label: 'Desktop app',           icon: '🖥️', hint: 'Electron / WPF / .NET MAUI' },
+      { value: 'api-only',label: 'API / Backend only',    icon: '⚙️', hint: 'No front-end in scope' },
+    ],
+  },
+  {
+    id: 'deployment',
+    question: 'How will the solution be deployed?',
+    type: 'single',
+    options: [
+      { value: 'cloud',   label: 'Cloud-native',  icon: '☁️', hint: 'AWS / Azure / GCP — IaaS or PaaS' },
+      { value: 'onprem',  label: 'On-premises',   icon: '🏢', hint: 'Client data centre or private cloud' },
+      { value: 'hybrid',  label: 'Hybrid',        icon: '🔀', hint: 'Mix of cloud and on-prem' },
+    ],
+  },
+  {
+    id: 'backendComplexity',
+    question: 'Backend and integration complexity?',
+    type: 'single',
+    options: [
+      { value: 'simple',  label: 'Simple / greenfield',       icon: '🌱', hint: 'New services, minimal integration' },
+      { value: 'medium',  label: 'Medium (1–3 integrations)', icon: '🔌', hint: 'REST/SOAP APIs, some legacy connectors' },
+      { value: 'complex', label: 'Complex (4+ / legacy)',      icon: '🕸️', hint: 'Heavy integration, legacy adapters, ESB' },
+    ],
+  },
+  {
+    id: 'dataNeeds',
+    question: 'Data and analytics requirements?',
+    type: 'single',
+    options: [
+      { value: 'none',      label: 'Minimal',              icon: '📄', hint: 'Standard CRUD, no analytics' },
+      { value: 'reporting', label: 'Database + reporting',  icon: '📊', hint: 'Dashboards, scheduled reports' },
+      { value: 'platform',  label: 'Data platform / BI',   icon: '🏗️', hint: 'Data lake, pipelines, self-serve BI' },
+      { value: 'ai',        label: 'AI / ML workloads',    icon: '🧠', hint: 'Model training, inference, MLOps' },
+    ],
+  },
+  {
+    id: 'infraScope',
+    question: 'Infrastructure setup scope?',
+    type: 'single',
+    options: [
+      { value: 'minimal',  label: 'Minimal',              icon: '➡️', hint: 'Use existing infra, minimal setup' },
+      { value: 'standard', label: 'Standard cloud setup', icon: '☁️', hint: 'VPC, CI/CD, containers, monitoring' },
+      { value: 'complex',  label: 'Enterprise-grade',     icon: '🏗️', hint: 'Multi-region, HA, DR, compliance baseline' },
+    ],
+  },
+  {
+    id: 'hasSecurityReqs',
+    question: 'Are there explicit security or compliance requirements?',
+    type: 'toggle',
+  },
+  {
+    id: 'hasChangeManagement',
+    question: 'Is change management or end-user training in scope?',
+    type: 'toggle',
+  },
+]
+
+export const DEFAULT_CONFIG: StreamConfig = {
+  platforms: ['web'],
+  deployment: 'cloud',
+  backendComplexity: 'medium',
+  dataNeeds: 'none',
+  infraScope: 'standard',
+  hasSecurityReqs: false,
+  hasChangeManagement: false,
+}
+
+// ── Stream generator ──────────────────────────────────────────
+
+export function generateStreams(cfg: StreamConfig, workType = ''): EstimateStream[] {
+  const streams: EstimateStream[] = []
+  const hasWeb     = cfg.platforms.includes('web')
+  const hasIOS     = cfg.platforms.includes('ios')
+  const hasAndroid = cfg.platforms.includes('android')
+  const hasRN      = cfg.platforms.includes('rn')
+  const hasDesktop = cfg.platforms.includes('desktop')
+  const hasFE      = hasWeb || hasIOS || hasAndroid || hasRN || hasDesktop
+  const isCloud    = cfg.deployment === 'cloud' || cfg.deployment === 'hybrid'
+  const isOnPrem   = cfg.deployment === 'onprem' || cfg.deployment === 'hybrid'
+
+  // Complexity multipliers
+  const beScale = cfg.backendComplexity === 'simple' ? 0.7 : cfg.backendComplexity === 'complex' ? 1.5 : 1.0
+  const infraScale = cfg.infraScope === 'minimal' ? 0.4 : cfg.infraScope === 'complex' ? 1.8 : 1.0
+
+  // ── Discovery & BA ───────────────────────────────────────
+  streams.push(s('disc-ba', 'Business Analysis & Requirements', 'discovery', { BA: 20, SA: 10 }, beScale * 0.8 + 0.2))
+
+  if (hasFE) {
+    streams.push(s('disc-ux', 'UX Research & Design', 'design', { UX: 25, BA: 5 }))
+  }
+
+  if (workType === 'ai-ml' || cfg.dataNeeds === 'ai') {
+    streams.push(s('disc-ds', 'Data Discovery & Scoping', 'discovery', { DE: 15, BA: 10, SA: 5 }))
+  }
+
+  // ── Frontend ─────────────────────────────────────────────
+  if (hasWeb) {
+    streams.push(s('fe-web', 'Frontend — Web', 'frontend', { SD: 35, MD: 25, UX: 5 }))
+  }
+  if (hasIOS) {
+    streams.push(s('fe-ios', 'Frontend — iOS (native)', 'frontend', { SD: 30, MD: 20 }))
+  }
+  if (hasAndroid) {
+    streams.push(s('fe-android', 'Frontend — Android (native)', 'frontend', { SD: 30, MD: 20 }))
+  }
+  if (hasRN) {
+    streams.push(s('fe-rn', 'Frontend — React Native / Flutter', 'frontend', { SD: 35, MD: 20 }))
+  }
+  if (hasDesktop) {
+    streams.push(s('fe-desktop', 'Frontend — Desktop App', 'frontend', { SD: 30, MD: 15 }))
+  }
+
+  // ── Backend ───────────────────────────────────────────────
+  streams.push(s('be-core', 'Backend — Core Services & APIs', 'backend', { SD: 40, MD: 25, SA: 10 }, beScale))
+
+  if (cfg.backendComplexity === 'medium' || cfg.backendComplexity === 'complex') {
+    streams.push(s('be-int', 'Integration & API Layer', 'backend', { SD: 25, SA: 10 }, beScale))
+  }
+  if (cfg.backendComplexity === 'complex') {
+    streams.push(s('be-legacy', 'Legacy Adapter / ESB Layer', 'backend', { SD: 20, SA: 15, MD: 10 }))
+  }
+
+  // Database is always present
+  streams.push(s('be-db', 'Database Design & Setup', 'backend', { SD: 15, SA: 10, BA: 5 }, beScale * 0.7 + 0.3))
+
+  // ── Data & Analytics ─────────────────────────────────────
+  if (cfg.dataNeeds === 'reporting') {
+    streams.push(s('data-rep', 'Reporting & Dashboards', 'data', { SD: 20, DE: 10, UX: 5 }))
+  }
+  if (cfg.dataNeeds === 'platform') {
+    streams.push(s('data-eng', 'Data Engineering & Pipelines', 'data', { DE: 40, SD: 15, SA: 10 }))
+    streams.push(s('data-bi', 'BI & Visualisation Layer', 'data', { DE: 20, SD: 15, UX: 10 }))
+  }
+  if (cfg.dataNeeds === 'ai') {
+    streams.push(s('data-eng', 'Data Engineering & Preparation', 'data', { DE: 40, SD: 10 }))
+    streams.push(s('data-ml', 'ML Model Development', 'data', { DE: 35, SD: 20, SA: 10 }))
+    streams.push(s('data-mlops', 'MLOps & Model Serving', 'data', { DO: 20, SD: 15, DE: 10 }))
+  }
+
+  // ── Infrastructure — CapEx (one-time setup) ───────────────
+  if (cfg.infraScope !== 'minimal') {
+    streams.push(s('infra-setup', 'Infrastructure Setup (CapEx)', 'infra', { DO: 20, SA: 10 }, infraScale))
+  }
+
+  // DevOps & CI/CD (CapEx one-time setup)
+  if (cfg.infraScope !== 'minimal') {
+    streams.push(s('devops', 'DevOps & CI/CD Pipeline', 'devops', { DO: 20, SD: 5 }, infraScale * 0.7 + 0.3))
+  }
+
+  // ── Infrastructure — OpEx (ongoing monthly costs) ─────────
+  if (isCloud && cfg.infraScope !== 'minimal') {
+    const monthlyCloud = cfg.infraScope === 'complex' ? 8000 : 3000
+    streams.push(opex('infra-cloud', 'Cloud Infrastructure Running Cost (OpEx)', 'infra', monthlyCloud))
+  }
+  if (isOnPrem) {
+    const monthlyOnprem = cfg.infraScope === 'complex' ? 5000 : 2000
+    streams.push(opex('infra-onprem', 'On-Prem Hosting & Licensing (OpEx)', 'infra', monthlyOnprem))
+  }
+  // Monitoring / observability OpEx
+  if (cfg.infraScope !== 'minimal') {
+    streams.push(opex('infra-mon', 'Monitoring & Observability Tools (OpEx)', 'infra', 500))
+  }
+
+  // ── Security ─────────────────────────────────────────────
+  if (cfg.hasSecurityReqs) {
+    streams.push(s('sec-impl', 'Security Implementation & Hardening', 'security', { SE: 20, SA: 10, SD: 10 }))
+    streams.push(s('sec-test', 'Penetration Testing & Security Review', 'security', { SE: 15, QA: 10 }))
+  }
+
+  // ── QA & Testing ─────────────────────────────────────────
+  streams.push(s('qa-main', 'QA & Functional Testing', 'qa', { QA: 30, MD: 5 }, beScale * 0.6 + 0.4))
+  if (hasFE) {
+    streams.push(s('qa-ui', 'UI / UX Testing & Accessibility', 'qa', { QA: 15 }))
+  }
+  if (cfg.backendComplexity === 'complex' || cfg.infraScope === 'complex') {
+    streams.push(s('qa-perf', 'Performance & Load Testing', 'qa', { QA: 15, DO: 5 }))
+  }
+
+  // ── Delivery Management ───────────────────────────────────
+  const pmDays = Math.round(
+    streams
+      .filter(st => st.costType === 'capex')
+      .reduce((sum, st) => sum + Object.values(st.efforts).reduce((a, b) => a + (b ?? 0), 0), 0) * 0.15
+  )
+  streams.push(s('pm', 'Project Management', 'pm', { PM: Math.max(pmDays, 20), DM: Math.round(pmDays * 0.4) }))
+
+  // ── Change Management ─────────────────────────────────────
+  if (cfg.hasChangeManagement) {
+    streams.push(s('change', 'Change Management & Training', 'change', { CM: 20, BA: 10 }))
+  }
+
+  return streams
+}
+
+export function getActiveRolesFromStreams(streams: EstimateStream[]): string[] {
+  const roles = new Set<string>()
+  for (const st of streams) {
+    for (const r of Object.keys(st.efforts)) roles.add(r)
+  }
+  // Always include PM
+  roles.add('PM')
+  return Array.from(roles)
+}
