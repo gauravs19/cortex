@@ -50,6 +50,8 @@ function createEstimate(name = '', workType = ''): Estimate {
     lineItems: [],
     targetBudget: 0,
     targetEffort: 0,
+    assumptions: [],
+    notes: '',
     createdAt: now,
     updatedAt: now,
   }
@@ -76,6 +78,13 @@ export interface EstimatorStore {
   updateLineItem: (id: string, patch: Partial<import('../types').EstimateLineItem>) => void
   removeLineItem: (id: string) => void
   syncLineItemsToStreams: () => void
+  // Assumptions (#6)
+  addAssumption: (text: string, impact: import('../types').Assumption['impact']) => void
+  removeAssumption: (id: string) => void
+  // Fork (#7)
+  forkEstimate: () => string
+  // Resource plan (#1)
+  setResourcePlan: (plan: import('../types').ResourcePlan) => void
   setRate: (role: RoleId, rate: number) => void
   setContingency: (pct: number, locked: boolean) => void
   importFromJson: (data: Partial<Estimate>) => string
@@ -235,6 +244,50 @@ export const useEstimatorStore = create<EstimatorStore>()(
         }))
       },
 
+      addAssumption: (text, impact) => {
+        const { activeId } = get()
+        if (!activeId) return
+        const id = `A-${Date.now()}`
+        set(s => ({
+          estimates: s.estimates.map(e =>
+            e.id === activeId
+              ? { ...e, assumptions: [...(e.assumptions ?? []), { id, text, impact }], updatedAt: new Date().toISOString() }
+              : e
+          ),
+        }))
+      },
+
+      removeAssumption: (id) => {
+        const { activeId } = get()
+        if (!activeId) return
+        set(s => ({
+          estimates: s.estimates.map(e =>
+            e.id === activeId
+              ? { ...e, assumptions: (e.assumptions ?? []).filter(a => a.id !== id), updatedAt: new Date().toISOString() }
+              : e
+          ),
+        }))
+      },
+
+      forkEstimate: () => {
+        const { activeId, estimates } = get()
+        const src = estimates.find(e => e.id === activeId)
+        if (!src) return ''
+        const copy = { ...src, id: generateId(), name: `${src.name} (copy)`, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
+        set(s => ({ estimates: [...s.estimates, copy], activeId: copy.id }))
+        return copy.id
+      },
+
+      setResourcePlan: (plan) => {
+        const { activeId } = get()
+        if (!activeId) return
+        set(s => ({
+          estimates: s.estimates.map(e =>
+            e.id === activeId ? { ...e, resourcePlan: plan, updatedAt: new Date().toISOString() } : e
+          ),
+        }))
+      },
+
       importFromJson: (data) => {
         const est: Estimate = {
           ...createEstimate(data.name, data.workType),
@@ -338,8 +391,10 @@ export const useEstimatorStore = create<EstimatorStore>()(
         state.estimates = state.estimates.map(e => ({
           ...e,
           estimationMode: e.estimationMode ?? 'quick',
-          wizardCompleted: e.wizardCompleted ?? true, // old estimates = already set up
+          wizardCompleted: e.wizardCompleted ?? true,
           lineItems: e.lineItems ?? [],
+          assumptions: e.assumptions ?? [],
+          notes: e.notes ?? '',
         }))
       },
     }
