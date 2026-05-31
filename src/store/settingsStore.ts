@@ -6,6 +6,7 @@ import { ROLES } from '../data/roles'
 export interface FirmSettings {
   firmName: string
   currency: Currency
+  customBank?: import('../types').WorkItemDefinition[]
   defaultMarginPct: number
   defaultOverheadPct: number
   defaultSprintWeeks: number
