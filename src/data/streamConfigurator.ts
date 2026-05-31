@@ -104,6 +104,152 @@ export const CONFIG_QUESTIONS: ConfigQuestion[] = [
   },
 ]
 
+// ── Work-type-specific scope questions ───────────────────────
+
+export interface ScopeQuestion {
+  id: string
+  label: string
+  type: 'single' | 'multi'
+  options: { value: string; label: string; hint?: string }[]
+}
+
+export const WORK_TYPE_SCOPE_QUESTIONS: Record<string, ScopeQuestion[]> = {
+  'ai-ml': [
+    { id: 'model_type', label: 'Model approach', type: 'single', options: [
+      { value: 'pretrained', label: '🤗 Fine-tune pre-trained', hint: 'GPT, BERT, foundation models' },
+      { value: 'custom',     label: '🏗️ Build from scratch',   hint: 'Custom architecture, full training' },
+      { value: 'traditional',label: '📐 Traditional ML',       hint: 'sklearn, XGBoost, regression' },
+    ]},
+    { id: 'data_readiness', label: 'Data readiness', type: 'single', options: [
+      { value: 'clean',       label: '✅ Available & clean' },
+      { value: 'needs_prep',  label: '🔧 Exists, needs prep' },
+      { value: 'needs_collect', label: '🕸️ Needs collecting / labelling' },
+    ]},
+    { id: 'serving', label: 'Inference pattern', type: 'single', options: [
+      { value: 'realtime', label: '⚡ Real-time API' },
+      { value: 'batch',    label: '📦 Batch / scheduled' },
+      { value: 'both',     label: '🔀 Both' },
+    ]},
+    { id: 'explainability', label: 'Explainability required?', type: 'single', options: [
+      { value: 'no',       label: 'No' },
+      { value: 'basic',    label: 'Basic (feature importance)' },
+      { value: 'full',     label: 'Full (regulatory / audit)' },
+    ]},
+  ],
+  'erp': [
+    { id: 'platform', label: 'ERP platform', type: 'single', options: [
+      { value: 'sap',      label: '🔷 SAP' },
+      { value: 'oracle',   label: '🔴 Oracle' },
+      { value: 'dynamics', label: '🟦 MS Dynamics' },
+      { value: 'workday',  label: '🟨 Workday' },
+      { value: 'other',    label: '⚙️ Other / Custom' },
+    ]},
+    { id: 'impl_type', label: 'Implementation type', type: 'single', options: [
+      { value: 'greenfield', label: '🌱 Greenfield (new)' },
+      { value: 'migration',  label: '🔄 Legacy migration' },
+      { value: 'upgrade',    label: '⬆️ Version upgrade' },
+    ]},
+    { id: 'modules', label: 'Modules in scope', type: 'multi', options: [
+      { value: 'finance',       label: '💰 Finance / GL' },
+      { value: 'hr',            label: '👥 HR / Payroll' },
+      { value: 'supply',        label: '📦 Supply Chain' },
+      { value: 'crm',           label: '🤝 CRM / Sales' },
+      { value: 'manufacturing', label: '🏭 Manufacturing' },
+      { value: 'analytics',     label: '📊 Reporting / BI' },
+    ]},
+  ],
+  'cloud-migration': [
+    { id: 'strategy', label: 'Migration strategy', type: 'single', options: [
+      { value: 'liftshift',  label: '🚛 Lift & shift (rehost)' },
+      { value: 'replatform', label: '🔧 Replatform (managed services)' },
+      { value: 'refactor',   label: '🏗️ Refactor / re-architect' },
+    ]},
+    { id: 'workload_count', label: 'Workload count', type: 'single', options: [
+      { value: 'small',  label: '1–5 workloads' },
+      { value: 'medium', label: '6–20 workloads' },
+      { value: 'large',  label: '20+ workloads' },
+    ]},
+    { id: 'downtime', label: 'Migration window', type: 'single', options: [
+      { value: 'flexible',  label: '✅ Flexible downtime OK' },
+      { value: 'limited',   label: '⚠️ Limited window' },
+      { value: 'zero',      label: '🚫 Zero downtime required' },
+    ]},
+  ],
+  'managed-service': [
+    { id: 'coverage', label: 'Service coverage', type: 'single', options: [
+      { value: 'biz',      label: '🏢 Business hours (8×5)' },
+      { value: 'extended', label: '📅 Extended (12×7)' },
+      { value: 'fulltime', label: '🌐 24×7' },
+    ]},
+    { id: 'sla_tier', label: 'SLA tier', type: 'single', options: [
+      { value: 'standard',  label: '4hr response — Standard' },
+      { value: 'enhanced',  label: '2hr response — Enhanced' },
+      { value: 'critical',  label: '30min response — Mission critical' },
+    ]},
+    { id: 'ticket_volume', label: 'Expected ticket volume', type: 'single', options: [
+      { value: 'low',    label: 'Low  (<50/mo)' },
+      { value: 'medium', label: 'Medium  (50–200/mo)' },
+      { value: 'high',   label: 'High  (200+/mo)' },
+    ]},
+    { id: 'service_type', label: 'What is being managed?', type: 'multi', options: [
+      { value: 'app',   label: '💻 Application support' },
+      { value: 'infra', label: '☁️ Infrastructure' },
+      { value: 'data',  label: '📊 Data / BI' },
+      { value: 'sec',   label: '🔒 Security ops' },
+    ]},
+  ],
+  'data-platform': [
+    { id: 'data_sources', label: 'Source system count', type: 'single', options: [
+      { value: 'few',    label: '1–3 sources' },
+      { value: 'several', label: '4–10 sources' },
+      { value: 'many',   label: '10+ sources' },
+    ]},
+    { id: 'processing', label: 'Processing pattern', type: 'single', options: [
+      { value: 'batch',      label: '📦 Batch / scheduled' },
+      { value: 'streaming',  label: '⚡ Real-time streaming' },
+      { value: 'mixed',      label: '🔀 Mixed batch + stream' },
+    ]},
+    { id: 'viz_tool', label: 'Visualisation tooling', type: 'single', options: [
+      { value: 'powerbi',    label: 'Power BI' },
+      { value: 'tableau',    label: 'Tableau' },
+      { value: 'looker',     label: 'Looker / Metabase' },
+      { value: 'custom',     label: 'Custom / embedded' },
+    ]},
+  ],
+  'digital-transformation': [
+    { id: 'legacy', label: 'Legacy system dependency', type: 'single', options: [
+      { value: 'none',   label: '🌱 Greenfield, no legacy' },
+      { value: 'some',   label: '🔌 Some legacy integration' },
+      { value: 'heavy',  label: '🕸️ Heavy legacy dependency' },
+    ]},
+    { id: 'user_scale', label: 'User scale', type: 'single', options: [
+      { value: 'small',      label: '<100 users' },
+      { value: 'medium',     label: '100–1,000 users' },
+      { value: 'enterprise', label: '1,000+ users' },
+    ]},
+    { id: 'programme', label: 'Programme type', type: 'single', options: [
+      { value: 'single',  label: 'Single workstream' },
+      { value: 'multi',   label: 'Multi-workstream programme' },
+    ]},
+  ],
+  'security': [
+    { id: 'scope_type', label: 'Security focus', type: 'multi', options: [
+      { value: 'app',      label: '💻 Application security' },
+      { value: 'infra',    label: '🏗️ Infrastructure hardening' },
+      { value: 'identity', label: '🔑 Identity & access' },
+      { value: 'compliance', label: '📋 Compliance / audit' },
+      { value: 'pentest',  label: '🎯 Penetration testing' },
+    ]},
+    { id: 'compliance_framework', label: 'Compliance framework', type: 'multi', options: [
+      { value: 'iso27001', label: 'ISO 27001' },
+      { value: 'soc2',     label: 'SOC 2' },
+      { value: 'gdpr',     label: 'GDPR' },
+      { value: 'pci',      label: 'PCI-DSS' },
+      { value: 'none',     label: 'None specific' },
+    ]},
+  ],
+}
+
 // ── Work type definitions ─────────────────────────────────────
 
 export const WORK_TYPES = [
