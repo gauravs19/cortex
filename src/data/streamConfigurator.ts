@@ -1,4 +1,5 @@
 import type { EstimateStream, StreamCategory, StreamConfig } from '../types'
+import { useSettingsStore } from '../store/settingsStore'
 
 function s(
   id: string,
@@ -119,9 +120,10 @@ export function generateStreams(cfg: StreamConfig, workType = ''): EstimateStrea
   const isCloud    = cfg.deployment === 'cloud' || cfg.deployment === 'hybrid'
   const isOnPrem   = cfg.deployment === 'onprem' || cfg.deployment === 'hybrid'
 
-  // Complexity multipliers
-  const beScale = cfg.backendComplexity === 'simple' ? 0.7 : cfg.backendComplexity === 'complex' ? 1.5 : 1.0
-  const infraScale = cfg.infraScope === 'minimal' ? 0.4 : cfg.infraScope === 'complex' ? 1.8 : 1.0
+  // Complexity multipliers — use settings calibration if available
+  const scale = useSettingsStore.getState().settings.effortScale
+  const beScale = cfg.backendComplexity === 'simple' ? scale.simple : cfg.backendComplexity === 'complex' ? scale.complex : scale.medium
+  const infraScale = cfg.infraScope === 'minimal' ? scale.infraMinimal : cfg.infraScope === 'complex' ? scale.infraComplex : scale.infraStandard
 
   // ── Discovery & BA ───────────────────────────────────────
   streams.push(s('disc-ba', 'Business Analysis & Requirements', 'discovery', { BA: 20, SA: 10 }, beScale * 0.8 + 0.2))

@@ -53,6 +53,7 @@ export interface Estimate {
   workingDaysPerWeek: number
   overheadPct: number
   projectMonths: number     // used for opex duration
+  startDate?: string        // ISO date string for Gantt
   createdAt: string
   updatedAt: string
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, FolderOpen, BarChart3, ArrowRight } from 'lucide-react'
+import { Plus, FolderOpen, BarChart3, ArrowRight, Settings } from 'lucide-react'
 import { useEstimatorStore } from '../store/estimatorStore'
 import LZString from 'lz-string'
 import type { Estimate } from '../types'
@@ -76,10 +76,16 @@ export default function Home() {
       <div className="w-full max-w-3xl space-y-8">
 
         {/* Header */}
-        <div className="text-center">
+        <div className="text-center relative">
           <div className="text-4xl font-black text-slate-900 tracking-tight">CORTEX</div>
           <div className="text-slate-500 mt-1 text-sm">Cost · Rate · Timeline EXecution</div>
           <div className="text-xs text-slate-400 mt-1">IT consulting deal estimator · free · browser-only</div>
+          <button
+            onClick={() => navigate('/settings')}
+            className="absolute right-0 top-0 flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-700 px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors"
+          >
+            <Settings size={13} /> Settings
+          </button>
         </div>
 
         {/* CADEX import banner */}

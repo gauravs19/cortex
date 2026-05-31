@@ -19,10 +19,22 @@ function getPhaseIndex(week: number, phaseWeeks: number[]): number {
   return phaseWeeks.length - 1
 }
 
+function addWeeks(dateStr: string, weeks: number): string {
+  const d = new Date(dateStr)
+  d.setDate(d.getDate() + weeks * 7)
+  return d.toISOString().slice(0, 10)
+}
+
+function fmt(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
 export default function TimelineTab() {
   const { getActive, updateField } = useEstimatorStore()
   const est = getActive()
   if (!est) return null
+
+  const startDate = est.startDate ?? new Date().toISOString().slice(0, 10)
 
   const totals = calcTotals(est)
   const phaseWeeks = PHASES.map(p => Math.max(1, Math.round(totals.calendarWeeks * p.pct)))
@@ -66,7 +78,17 @@ export default function TimelineTab() {
     <div className="space-y-6">
 
       {/* Settings row */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-3 gap-4">
+        <div className="bg-white border border-slate-200 rounded-xl p-4">
+          <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-2">Project start date</label>
+          <input
+            type="date"
+            value={startDate}
+            onChange={e => updateField('startDate', e.target.value)}
+            className="w-full text-sm font-semibold text-slate-700 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-400"
+          />
+          <div className="text-xs text-slate-400 mt-1.5">End: {fmt(addWeeks(startDate, totalWeeks))}</div>
+        </div>
         <div className="bg-white border border-slate-200 rounded-xl p-4">
           <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-2">Sprint length</label>
           <div className="flex gap-2">
