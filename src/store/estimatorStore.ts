@@ -3,19 +3,25 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import type { Estimate, RoleId, RiskBand, EstimateStream, StreamConfig } from '../types'
 import { ROLES, DEFAULT_ROLES, CONTINGENCY_BY_BAND } from '../data/roles'
 import { generateStreams, getActiveRolesFromStreams, DEFAULT_CONFIG } from '../data/streamConfigurator'
+import { useSettingsStore } from './settingsStore'
 
 function generateId() {
   return crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)
 }
 
-function defaultRateCard(): Partial<Record<RoleId, number>> {
-  return Object.fromEntries(
-    (Object.keys(ROLES) as RoleId[]).map(r => [r, ROLES[r].defaultRate])
-  ) as Record<RoleId, number>
+function getSettingsRateCard(): Partial<Record<RoleId, number>> {
+  const { settings } = useSettingsStore.getState()
+  if (settings.useBlendedRate) {
+    return Object.fromEntries(
+      (Object.keys(ROLES) as RoleId[]).map(r => [r, settings.blendedRate])
+    ) as Record<RoleId, number>
+  }
+  return { ...(settings.rateCard as Record<RoleId, number>) }
 }
 
 function createEstimate(name = '', workType = ''): Estimate {
   const now = new Date().toISOString()
+  const { settings } = useSettingsStore.getState()
   const cfg = DEFAULT_CONFIG
   const streams = generateStreams(cfg, workType)
   const roles = getActiveRolesFromStreams(streams) as RoleId[]
@@ -26,15 +32,15 @@ function createEstimate(name = '', workType = ''): Estimate {
     streamConfig: cfg,
     streams,
     activeRoles: roles.length ? roles : DEFAULT_ROLES,
-    rateCard: defaultRateCard(),
-    currency: 'GBP',
-    targetMarginPct: 25,
+    rateCard: getSettingsRateCard(),
+    currency: settings.currency,
+    targetMarginPct: settings.defaultMarginPct,
     contingencyPct: CONTINGENCY_BY_BAND['unknown'],
     contingencyLocked: false,
-    sprintWeeks: 2,
-    workingDaysPerWeek: 5,
-    overheadPct: 10,
-    projectMonths: 6,
+    sprintWeeks: settings.defaultSprintWeeks,
+    workingDaysPerWeek: settings.defaultWorkingDaysPerWeek,
+    overheadPct: settings.defaultOverheadPct,
+    projectMonths: settings.defaultProjectMonths,
     createdAt: now,
     updatedAt: now,
   }
