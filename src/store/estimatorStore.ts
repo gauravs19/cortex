@@ -10,6 +10,14 @@ function generateId() {
   return crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)
 }
 
+// Default cost rate = ~55% of bill rate (standard consulting model)
+function getSettingsCostRateCard(): Partial<Record<RoleId, number>> {
+  const { settings } = useSettingsStore.getState()
+  return Object.fromEntries(
+    (Object.keys(ROLES) as RoleId[]).map(r => [r, Math.round((settings.rateCard[r] ?? ROLES[r].defaultRate) * 0.55)])
+  ) as Record<RoleId, number>
+}
+
 function getSettingsRateCard(): Partial<Record<RoleId, number>> {
   const { settings } = useSettingsStore.getState()
   if (settings.useBlendedRate) {
@@ -39,6 +47,7 @@ function createEstimate(name = '', workType = ''): Estimate {
     streams,
     activeRoles: roles.length ? roles : DEFAULT_ROLES,
     rateCard: getSettingsRateCard(),
+    costRateCard: getSettingsCostRateCard(),
     currency: settings.currency,
     targetMarginPct: settings.defaultMarginPct,
     contingencyPct: CONTINGENCY_BY_BAND['unknown'],
@@ -47,6 +56,8 @@ function createEstimate(name = '', workType = ''): Estimate {
     workingDaysPerWeek: settings.defaultWorkingDaysPerWeek,
     overheadPct: settings.defaultOverheadPct,
     projectMonths: settings.defaultProjectMonths,
+    salesCommissionPct: 5,
+    gaOverheadPct: 8,
     lineItems: [],
     features: [],
     targetBudget: 0,
@@ -459,6 +470,9 @@ export const useEstimatorStore = create<EstimatorStore>()(
           features: e.features ?? [],
           assumptions: e.assumptions ?? [],
           notes: e.notes ?? '',
+          costRateCard: e.costRateCard ?? getSettingsCostRateCard(),
+          salesCommissionPct: e.salesCommissionPct ?? 5,
+          gaOverheadPct: e.gaOverheadPct ?? 8,
         }))
       },
     }

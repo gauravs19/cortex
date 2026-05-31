@@ -48,9 +48,13 @@ export interface Estimate {
   id: string; name: string; clientName: string; workType: string; riskBand: RiskBand
   estimationMode: EstimationMode; wizardCompleted: boolean; streamConfig?: StreamConfig; cadexDealId?: string
   streams: EstimateStream[]; activeRoles: RoleId[]; rateCard: Partial<Record<RoleId, number>>
-  currency: Currency; billingCurrency?: Currency   // #9
+  costRateCard: Partial<Record<RoleId, number>>   // internal cost per day (what you pay); bill rate in rateCard
+  currency: Currency; billingCurrency?: Currency
   targetMarginPct: number; contingencyPct: number; contingencyLocked: boolean
   sprintWeeks: number; workingDaysPerWeek: number; overheadPct: number
+  // P&L additional lines
+  salesCommissionPct: number   // % of revenue for sales/bid cost
+  gaOverheadPct: number        // G&A overhead % of revenue
   projectMonths: number; startDate?: string
   lineItems: EstimateLineItem[]
   features: EstimateFeature[]       // requirement/feature groups
