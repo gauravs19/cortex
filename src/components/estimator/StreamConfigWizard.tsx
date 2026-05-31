@@ -41,8 +41,7 @@ export default function StreamConfigWizard({ initialConfig, workType, onApply, o
     sum + Object.values(s.efforts).reduce((a, b) => a + (b ?? 0), 0), 0)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
+    <div className="bg-white rounded-2xl border border-slate-200 w-full flex flex-col overflow-hidden">
 
         {/* Header */}
         <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between shrink-0">
@@ -224,7 +223,6 @@ export default function StreamConfigWizard({ initialConfig, workType, onApply, o
             </button>
           )}
         </div>
-      </div>
     </div>
   )
 }

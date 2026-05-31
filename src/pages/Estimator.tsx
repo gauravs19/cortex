@@ -51,27 +51,6 @@ export default function Estimator() {
 
   if (!est) return null
 
-  // Show wizard on first open
-  if (!est.wizardCompleted) {
-    return (
-      <div className="min-h-screen bg-slate-900/60 flex items-center justify-center p-6">
-        <div className="w-full max-w-4xl">
-          <div className="text-center mb-6">
-            <div className="text-2xl font-black text-white tracking-tight">CORTEX</div>
-            <div className="text-slate-400 text-sm mt-1">Let's configure your project</div>
-          </div>
-          <StreamConfigWizard
-            initialConfig={est.streamConfig}
-            workType={est.workType}
-            closeLabel="Skip for now"
-            onApply={(streams, config, roles) => { setStreams(streams, config, roles); updateField('wizardCompleted', true) }}
-            onClose={() => updateField('wizardCompleted', true)}
-          />
-        </div>
-      </div>
-    )
-  }
-
   const totals = calcTotals(est)
   const sym = totals.sym
 
@@ -232,12 +211,33 @@ export default function Estimator() {
 
       {/* Tab content */}
       <main className="flex-1 max-w-6xl mx-auto w-full px-6 py-6">
-        {activeTab === 'lineitems' && <LineItemsTab />}
-        {activeTab === 'streams'   && <StreamsTab />}
-        {activeTab === 'risk'      && <RiskTab />}
-        {activeTab === 'cost'      && <CostTab />}
-        {activeTab === 'timeline'  && <TimelineTab />}
-        {activeTab === 'resource'  && <ResourceTab />}
+        {/* Inline configurator — shown instead of tab content on first open */}
+        {!est.wizardCompleted ? (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-bold text-slate-900">Configure your project streams</div>
+                <div className="text-xs text-slate-400 mt-0.5">Answer a few questions to set up the right work stream structure</div>
+              </div>
+            </div>
+            <StreamConfigWizard
+              initialConfig={est.streamConfig}
+              workType={est.workType}
+              closeLabel="Skip for now"
+              onApply={(streams, config, roles) => { setStreams(streams, config, roles); updateField('wizardCompleted', true) }}
+              onClose={() => updateField('wizardCompleted', true)}
+            />
+          </div>
+        ) : (
+          <>
+            {activeTab === 'lineitems' && <LineItemsTab />}
+            {activeTab === 'streams'   && <StreamsTab />}
+            {activeTab === 'risk'      && <RiskTab />}
+            {activeTab === 'cost'      && <CostTab />}
+            {activeTab === 'timeline'  && <TimelineTab />}
+            {activeTab === 'resource'  && <ResourceTab />}
+          </>
+        )}
       </main>
     </div>
   )
