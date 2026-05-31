@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { BarChart3, Shield, DollarSign, Calendar, Download } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { BarChart3, Shield, DollarSign, Calendar, Download, Settings } from 'lucide-react'
 import { useEstimatorStore, calcTotals } from '../store/estimatorStore'
 import StreamsTab from '../components/tabs/StreamsTab'
 import RiskTab from '../components/tabs/RiskTab'
@@ -35,6 +36,7 @@ const BAND_COLORS: Record<RiskBand, string> = {
 
 export default function Estimator() {
   const { getActive, updateField, setWorkType } = useEstimatorStore()
+  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('streams')
   const est = getActive()
 
@@ -107,6 +109,13 @@ export default function Estimator() {
               className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-indigo-600 px-3 py-2 rounded-lg border border-slate-200 hover:border-indigo-300 transition-colors"
             >
               <Download size={13} /> Export JSON
+            </button>
+            <button
+              onClick={() => navigate('/settings')}
+              title="Settings"
+              className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 px-3 py-2 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors"
+            >
+              <Settings size={13} /> Settings
             </button>
           </div>
         </div>

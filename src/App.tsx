@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useParams, useNavigate } from 'react-router-do
 import { useEstimatorStore } from './store/estimatorStore'
 import Home from './pages/Home'
 import Estimator from './pages/Estimator'
+import Settings from './pages/Settings'
 
 function EstimateRoute() {
   const { id } = useParams<{ id: string }>()
@@ -28,6 +29,7 @@ export default function App() {
     <Routes>
       <Route path="/"             element={<Home />} />
       <Route path="/estimate/:id" element={<EstimateRoute />} />
+      <Route path="/settings"     element={<Settings />} />
       <Route path="*"             element={<Navigate to="/" replace />} />
     </Routes>
   )
