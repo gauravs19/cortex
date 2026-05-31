@@ -77,6 +77,7 @@ export interface Estimate {
   workType: string
   riskBand: RiskBand
   estimationMode: EstimationMode  // 'quick' = stream matrix | 'detailed' = line items
+  wizardCompleted: boolean        // false = show configurator wizard on open
   streamConfig?: StreamConfig
   cadexDealId?: string
   // Stream matrix (manual or synced from line items)

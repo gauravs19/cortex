@@ -10,11 +10,13 @@ const CATEGORY_ORDER: StreamCategory[] = [
 ]
 
 export default function StreamsTab() {
-  const { getActive, setEffort, setStreamMonthlyRate, addStream, removeStream, renameStream, toggleRole, setStreams } = useEstimatorStore()
+  const { getActive, setEffort, setStreamMonthlyRate, addStream, removeStream, renameStream, toggleRole, setStreams, updateField } = useEstimatorStore()
   const est = getActive()
   const [newStreamName, setNewStreamName] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [showWizard, setShowWizard] = useState(false)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const updateFieldAny = updateField as (k: string, v: any) => void
 
   if (!est) return null
 
@@ -64,7 +66,7 @@ export default function StreamsTab() {
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setShowWizard(true)}
+            onClick={() => updateFieldAny('wizardCompleted', false)}
             className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl hover:bg-indigo-700 transition-colors"
           >
             <Wand2 size={13} /> Reconfigure streams

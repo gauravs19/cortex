@@ -7,6 +7,7 @@ import RiskTab from '../components/tabs/RiskTab'
 import CostTab from '../components/tabs/CostTab'
 import TimelineTab from '../components/tabs/TimelineTab'
 import LineItemsTab from '../components/tabs/LineItemsTab'
+import StreamConfigWizard from '../components/estimator/StreamConfigWizard'
 import type { RiskBand } from '../types'
 
 const TABS = [
@@ -37,12 +38,36 @@ const BAND_COLORS: Record<RiskBand, string> = {
 }
 
 export default function Estimator() {
-  const { getActive, updateField, setWorkType } = useEstimatorStore()
+  const { getActive, updateField, setWorkType, setStreams } = useEstimatorStore()
   const navigate = useNavigate()
-  const [activeTab, setActiveTab] = useState('streams')
+  const [activeTab, setActiveTab] = useState('lineitems')
   const est = getActive()
 
   if (!est) return null
+
+  // Show wizard as the first thing for new estimates
+  if (!est.wizardCompleted) {
+    return (
+      <div className="min-h-screen bg-slate-900/60 flex items-center justify-center p-6">
+        <div className="w-full max-w-4xl">
+          <div className="text-center mb-6">
+            <div className="text-2xl font-black text-white tracking-tight">CORTEX</div>
+            <div className="text-slate-400 text-sm mt-1">Let's configure your project</div>
+          </div>
+          <StreamConfigWizard
+            initialConfig={est.streamConfig}
+            workType={est.workType}
+            closeLabel="Skip for now"
+            onApply={(streams, config, roles) => {
+              setStreams(streams, config, roles)
+              updateField('wizardCompleted', true)
+            }}
+            onClose={() => updateField('wizardCompleted', true)}
+          />
+        </div>
+      </div>
+    )
+  }
 
   const totals = calcTotals(est)
   const sym = totals.sym

@@ -8,9 +8,10 @@ interface Props {
   workType: string
   onApply: (streams: ReturnType<typeof generateStreams>, config: StreamConfig, roles: string[]) => void
   onClose: () => void
+  closeLabel?: string  // override the cancel/close button text
 }
 
-export default function StreamConfigWizard({ initialConfig, workType, onApply, onClose }: Props) {
+export default function StreamConfigWizard({ initialConfig, workType, onApply, onClose, closeLabel = 'Cancel' }: Props) {
   const [step, setStep] = useState(0)
   const [cfg, setCfg] = useState<StreamConfig>(initialConfig ?? DEFAULT_CONFIG)
 
@@ -195,7 +196,7 @@ export default function StreamConfigWizard({ initialConfig, workType, onApply, o
         <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between shrink-0">
           <div className="flex gap-2">
             <button onClick={onClose} className="text-xs text-slate-400 hover:text-slate-600 px-3 py-2 rounded-lg transition-colors">
-              Cancel
+              {closeLabel}
             </button>
             {step > 0 && (
               <button
