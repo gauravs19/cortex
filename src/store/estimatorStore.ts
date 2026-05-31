@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import type { Estimate, RoleId, RiskBand, EstimateStream, StreamConfig } from '../types'
 import { ROLES, DEFAULT_ROLES, CONTINGENCY_BY_BAND } from '../data/roles'
-import { generateStreams, getActiveRolesFromStreams, DEFAULT_CONFIG } from '../data/streamConfigurator'
+import { generateStreams, getActiveRolesFromStreams, DEFAULT_CONFIG, setBlankMode } from '../data/streamConfigurator'
 import { useSettingsStore } from './settingsStore'
 import { DEFAULT_WORK_ITEM_BANK, getWorkItemById, computeLineItemEfforts } from '../data/workItemBank'
 
@@ -24,12 +24,16 @@ function createEstimate(name = '', workType = ''): Estimate {
   const now = new Date().toISOString()
   const { settings } = useSettingsStore.getState()
   const cfg = DEFAULT_CONFIG
+  // Generate stream structure only — no pre-filled effort (blank mode)
+  setBlankMode(true)
   const streams = generateStreams(cfg, workType)
+  setBlankMode(false)
   const roles = getActiveRolesFromStreams(streams) as RoleId[]
   return {
     id: generateId(),
     name, clientName: '', workType,
     riskBand: 'unknown',
+    estimationMode: 'detailed',   // default to line items — user picks from bank
     streamConfig: cfg,
     streams,
     activeRoles: roles.length ? roles : DEFAULT_ROLES,
@@ -236,6 +240,7 @@ export const useEstimatorStore = create<EstimatorStore>()(
           ...data,
           id: generateId(),
           lineItems: data.lineItems ?? [],
+          estimationMode: data.estimationMode ?? 'detailed',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         }
@@ -325,6 +330,15 @@ export const useEstimatorStore = create<EstimatorStore>()(
       name: 'cortex-v1',
       storage: createJSONStorage(() => localStorage),
       partialize: (s) => ({ estimates: s.estimates, activeId: s.activeId }),
+      onRehydrateStorage: () => (state) => {
+        if (!state) return
+        // Migrate: estimates without estimationMode default to 'quick' (they have filled streams)
+        state.estimates = state.estimates.map(e => ({
+          ...e,
+          estimationMode: e.estimationMode ?? 'quick',
+          lineItems: e.lineItems ?? [],
+        }))
+      },
     }
   )
 )
@@ -335,13 +349,28 @@ export function calcTotals(est: Estimate) {
   const sym = est.currency === 'GBP' ? '£' : est.currency === 'USD' ? '$' : est.currency === 'EUR' ? '€' : '₹'
   const mult = est.currency === 'GBP' ? 1 : est.currency === 'USD' ? 1.27 : est.currency === 'EUR' ? 1.17 : 105
 
-  const capexStreams = est.streams.filter(s => s.costType !== 'opex')
-  const opexStreams  = est.streams.filter(s => s.costType === 'opex')
+  const opexStreams = est.streams.filter(s => s.costType === 'opex')
 
+  // Mode-aware effort source
   const effortByRole: Partial<Record<RoleId, number>> = {}
-  for (const stream of capexStreams) {
-    for (const [role, days] of Object.entries(stream.efforts) as [RoleId, number][]) {
-      effortByRole[role] = (effortByRole[role] ?? 0) + days
+
+  if (est.estimationMode === 'detailed' && (est.lineItems?.length ?? 0) > 0) {
+    // Detailed mode: sum from line items
+    const bank = [...DEFAULT_WORK_ITEM_BANK, ...(useSettingsStore.getState().settings.customBank ?? [])]
+    for (const li of est.lineItems ?? []) {
+      const def = getWorkItemById(li.definitionId, bank)
+      if (!def) continue
+      const efforts = computeLineItemEfforts(def, li.sizeCode, li.quantity)
+      for (const [role, days] of Object.entries(efforts) as [RoleId, number][]) {
+        effortByRole[role] = (effortByRole[role] ?? 0) + days
+      }
+    }
+  } else {
+    // Quick mode: sum from stream matrix
+    for (const stream of est.streams.filter(s => s.costType !== 'opex')) {
+      for (const [role, days] of Object.entries(stream.efforts) as [RoleId, number][]) {
+        effortByRole[role] = (effortByRole[role] ?? 0) + days
+      }
     }
   }
 

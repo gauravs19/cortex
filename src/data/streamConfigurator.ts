@@ -1,6 +1,10 @@
 import type { EstimateStream, StreamCategory, StreamConfig } from '../types'
 import { useSettingsStore } from '../store/settingsStore'
 
+// blank=true → structure only, no pre-filled effort (used when creating new estimates)
+let _blankMode = false
+export function setBlankMode(v: boolean) { _blankMode = v }
+
 function s(
   id: string,
   name: string,
@@ -8,6 +12,9 @@ function s(
   efforts: Partial<Record<string, number>>,
   scale = 1.0
 ): EstimateStream {
+  if (_blankMode) {
+    return { id, name, category, costType: 'capex', efforts: {} }
+  }
   const scaled: Partial<Record<string, number>> = {}
   for (const [k, v] of Object.entries(efforts)) {
     const rounded = Math.round((v ?? 0) * scale)
