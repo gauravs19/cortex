@@ -6,21 +6,11 @@ import { decodeEstimateFromUrl, clearShareFromUrl } from '../lib/shareIO'
 import LZString from 'lz-string'
 import type { Estimate } from '../types'
 
-const WORK_TYPES = [
-  { value: '',                       label: 'Generic / Custom Dev',     icon: '⚙️' },
-  { value: 'digital-transformation', label: 'Digital Transformation',   icon: '🔄' },
-  { value: 'ai-ml',                  label: 'AI / ML',                  icon: '🤖' },
-  { value: 'erp',                    label: 'ERP Implementation',       icon: '🏢' },
-  { value: 'cloud-migration',        label: 'Cloud Migration',          icon: '☁️' },
-  { value: 'data-platform',          label: 'Data Platform',            icon: '📊' },
-  { value: 'security',               label: 'Security',                 icon: '🔒' },
-  { value: 'managed-service',        label: 'Managed Service',          icon: '🛠️' },
-]
+
 
 export default function Home() {
   const { createEstimate, importFromJson, estimates } = useEstimatorStore()
   const navigate = useNavigate()
-  const [selectedType, setSelectedType] = useState('')
   const [importError, setImportError] = useState('')
 
   // Decode shared estimate from URL on load
@@ -34,7 +24,7 @@ export default function Home() {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleNew = () => {
-    const id = createEstimate('New estimate', selectedType)
+    const id = createEstimate('New estimate', '')
     navigate(`/estimate/${id}`)
   }
 
@@ -116,34 +106,12 @@ export default function Home() {
         )}
 
         {/* New estimate */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-5">
-          <div>
-            <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Start new estimate</div>
-            <div className="grid grid-cols-4 gap-2">
-              {WORK_TYPES.map(w => (
-                <button
-                  key={w.value}
-                  onClick={() => setSelectedType(w.value)}
-                  className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 text-center transition-all ${
-                    selectedType === w.value
-                      ? 'border-indigo-400 bg-indigo-50'
-                      : 'border-slate-100 hover:border-slate-200 hover:bg-slate-50'
-                  }`}
-                >
-                  <span className="text-xl">{w.icon}</span>
-                  <span className="text-xs font-semibold text-slate-700 leading-tight">{w.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-          <button
-            onClick={handleNew}
-            className="w-full flex items-center justify-center gap-2 py-3 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition-colors"
-          >
-            <Plus size={16} /> New estimate
-            {selectedType && <span className="opacity-70 text-sm font-normal">— {WORK_TYPES.find(w => w.value === selectedType)?.label}</span>}
-          </button>
-        </div>
+        <button
+          onClick={handleNew}
+          className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 transition-colors text-base shadow-sm"
+        >
+          <Plus size={18} /> New estimate
+        </button>
 
         {/* Load / recent */}
         <div className="grid grid-cols-2 gap-4">

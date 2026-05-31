@@ -224,7 +224,11 @@ export default function Estimator() {
               initialConfig={est.streamConfig}
               workType={est.workType}
               closeLabel="Skip for now"
-              onApply={(streams, config, roles) => { setStreams(streams, config, roles); updateField('wizardCompleted', true) }}
+              onWorkTypeChange={wt => updateField('workType', wt)}
+              onApply={(streams, config, roles) => {
+                setStreams(streams, config, roles)
+                updateField('wizardCompleted', true)
+              }}
               onClose={() => updateField('wizardCompleted', true)}
             />
           </div>

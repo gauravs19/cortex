@@ -104,6 +104,55 @@ export const CONFIG_QUESTIONS: ConfigQuestion[] = [
   },
 ]
 
+// ── Work type definitions ─────────────────────────────────────
+
+export const WORK_TYPES = [
+  { value: '',                       label: 'Generic',              icon: '⚙️' },
+  { value: 'digital-transformation', label: 'Digital Transform',    icon: '🔄' },
+  { value: 'ai-ml',                  label: 'AI / ML',              icon: '🧠' },
+  { value: 'erp',                    label: 'ERP',                  icon: '🏢' },
+  { value: 'cloud-migration',        label: 'Cloud Migration',      icon: '☁️' },
+  { value: 'data-platform',          label: 'Data Platform',        icon: '📊' },
+  { value: 'security',               label: 'Security',             icon: '🔒' },
+  { value: 'managed-service',        label: 'Managed Service',      icon: '🛠️' },
+]
+
+// Smart defaults per work type — pre-fills the configurator
+export const WORK_TYPE_DEFAULTS: Record<string, StreamConfig> = {
+  '': {
+    platforms: ['web'], deployment: 'cloud', backendComplexity: 'medium',
+    dataNeeds: 'none', infraScope: 'standard', hasSecurityReqs: false, hasChangeManagement: false,
+  },
+  'digital-transformation': {
+    platforms: ['web'], deployment: 'cloud', backendComplexity: 'medium',
+    dataNeeds: 'reporting', infraScope: 'standard', hasSecurityReqs: false, hasChangeManagement: true,
+  },
+  'ai-ml': {
+    platforms: ['api-only'], deployment: 'cloud', backendComplexity: 'medium',
+    dataNeeds: 'ai', infraScope: 'standard', hasSecurityReqs: false, hasChangeManagement: false,
+  },
+  'erp': {
+    platforms: ['web'], deployment: 'cloud', backendComplexity: 'complex',
+    dataNeeds: 'reporting', infraScope: 'standard', hasSecurityReqs: false, hasChangeManagement: true,
+  },
+  'cloud-migration': {
+    platforms: ['api-only'], deployment: 'cloud', backendComplexity: 'complex',
+    dataNeeds: 'none', infraScope: 'complex', hasSecurityReqs: false, hasChangeManagement: false,
+  },
+  'data-platform': {
+    platforms: ['web'], deployment: 'cloud', backendComplexity: 'medium',
+    dataNeeds: 'platform', infraScope: 'standard', hasSecurityReqs: false, hasChangeManagement: false,
+  },
+  'security': {
+    platforms: ['api-only'], deployment: 'cloud', backendComplexity: 'medium',
+    dataNeeds: 'none', infraScope: 'standard', hasSecurityReqs: true, hasChangeManagement: false,
+  },
+  'managed-service': {
+    platforms: ['api-only'], deployment: 'hybrid', backendComplexity: 'simple',
+    dataNeeds: 'none', infraScope: 'minimal', hasSecurityReqs: false, hasChangeManagement: true,
+  },
+}
+
 export const DEFAULT_CONFIG: StreamConfig = {
   platforms: ['web'],
   deployment: 'cloud',
