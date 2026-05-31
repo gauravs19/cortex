@@ -7,7 +7,7 @@ export interface FirmSettings {
   firmName: string
   currency: Currency
   customBank?: import('../types').WorkItemDefinition[]
-  recentWorkItemIds: string[]   // #11 — recently used in bank picker
+  recentWorkItemIds: string[]
   defaultMarginPct: number
   defaultOverheadPct: number
   defaultSprintWeeks: number
@@ -60,7 +60,7 @@ export interface SettingsStore {
   setEffortScale: (key: keyof FirmSettings['effortScale'], value: number) => void
   resetRates: () => void
   resetEffortScale: () => void
-  addRecentWorkItem: (id: string) => void  // #11
+  addRecentWorkItem: (id: string) => void
 }
 
 export const useSettingsStore = create<SettingsStore>()(
