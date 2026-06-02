@@ -4,7 +4,7 @@ import { FolderOpen, BarChart3, ArrowRight, Settings, ChevronDown, ChevronUp } f
 import { useEstimatorStore } from '../store/estimatorStore'
 import { decodeEstimateFromUrl, clearShareFromUrl } from '../lib/shareIO'
 import LZString from 'lz-string'
-import { WORK_TYPES, WORK_TYPE_DEFAULTS, generateStreams, getActiveRolesFromStreams } from '../data/streamConfigurator'
+import { WORK_TYPES, WORK_TYPE_DEFAULTS, generateStreams, getActiveRolesFromStreams, setBlankMode } from '../data/streamConfigurator'
 import type { Estimate, StreamConfig } from '../types'
 
 export default function Home() {
@@ -35,11 +35,12 @@ export default function Home() {
 
   const handleNew = () => {
     const id = createEstimate('New estimate', workType)
-    // Apply configured streams immediately via store directly
+    // Always start blank — user enters effort intentionally or loads reference in Stream Matrix
+    setBlankMode(true)
     const streams = generateStreams(cfg, workType)
+    setBlankMode(false)
     const roles = getActiveRolesFromStreams(streams)
     useEstimatorStore.getState().setStreams(streams, cfg, roles)
-    // Mark wizard as done — streams are already configured
     useEstimatorStore.getState().updateField('wizardCompleted', true)
     navigate(`/estimate/${id}`)
   }

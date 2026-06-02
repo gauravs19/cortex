@@ -155,7 +155,12 @@ export default function Estimator() {
             {est.estimationMode === 'detailed' ? `${(est.lineItems ?? []).length} line items` : 'stream matrix'}
           </div>
           <div className="h-4 w-px bg-indigo-700" />
-          <SummaryPill label="Total effort" value={`${totals.totalDays}d`} highlight />
+          <SummaryPill
+            label="Total effort"
+            value={totals.totalDays > 0 ? `${totals.totalDays}d` : 'No effort'}
+            highlight={totals.totalDays > 0}
+            muted={totals.totalDays === 0}
+          />
           <div className="h-4 w-px bg-indigo-700" />
           <SummaryPill label="Direct cost" value={fmt(totals.totalCost)} />
           <SummaryPill
@@ -240,10 +245,10 @@ export default function Estimator() {
   )
 }
 
-function SummaryPill({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+function SummaryPill({ label, value, highlight, muted }: { label: string; value: string; highlight?: boolean; muted?: boolean }) {
   return (
     <div className="text-center shrink-0">
-      <div className={`text-sm font-black ${highlight ? 'text-white' : 'text-indigo-300'}`}>{value}</div>
+      <div className={`text-sm font-black ${muted ? 'text-indigo-600' : highlight ? 'text-white' : 'text-indigo-300'}`}>{value}</div>
       <div className="text-xs text-indigo-400 mt-0.5">{label}</div>
     </div>
   )
