@@ -446,3 +446,31 @@ export function getActiveRolesFromStreams(streams: EstimateStream[]): string[] {
   roles.add('PM')
   return Array.from(roles)
 }
+
+/**
+ * Merge a new stream structure into existing streams.
+ * - Streams whose ID exists in `existing` keep their current effort and monthly rate.
+ * - Streams new to the structure start blank.
+ * - Streams removed from the structure are dropped.
+ * This means scope changes (platform, backend complexity, etc.) never wipe manual effort.
+ */
+export function mergeStreams(existing: EstimateStream[], next: EstimateStream[]): EstimateStream[] {
+  const byId = new Map(existing.map(s => [s.id, s]))
+  return next.map(s => {
+    const old = byId.get(s.id)
+    if (!old) return s // new stream — keep as-is (caller controls blank mode)
+    return { ...s, efforts: old.efforts, monthlyRate: old.monthlyRate ?? s.monthlyRate }
+  })
+}
+
+/**
+ * Generate streams with their full reference effort (ignores blank mode).
+ * Used by the "Load reference effort" action in the Stream Matrix.
+ */
+export function getReferenceStreams(cfg: StreamConfig, workType: string): EstimateStream[] {
+  const prev = _blankMode
+  _blankMode = false
+  const streams = generateStreams(cfg, workType)
+  _blankMode = prev
+  return streams
+}
