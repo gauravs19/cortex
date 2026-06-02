@@ -26,6 +26,9 @@ export default function CostTab() {
   const totals = calcTotals(est)
   const sym = totals.sym
   const mult = totals.mult
+  const { billSym, billMult } = totals
+  const billCurrency = est.billingCurrency ?? est.currency
+  const sellPriceBilled = totals.sellPrice * (billMult / mult)
   const fmtFull = (n: number) => `${sym}${Math.round(n).toLocaleString()}`
   const fmtK = (n: number) => est.currency === 'INR' ? fmtFull(n) : `${sym}${Math.round(n / 1000)}k`
 
@@ -223,7 +226,7 @@ export default function CostTab() {
           <div className="text-xs font-bold text-slate-700 uppercase tracking-wider">P&amp;L waterfall</div>
         </div>
         <div className="divide-y divide-slate-100">
-          <PLRow label="Revenue" value={fmtFull(revenue)} pctOf={revenue} base={revenue} />
+          <PLRow label={`Revenue — ${est.currency}${billCurrency !== est.currency ? ` (billed as ${billCurrency}: ${billSym}${Math.round(sellPriceBilled / 1000)}k)` : ''}`} value={fmtFull(revenue)} pctOf={revenue} base={revenue} />
           <PLRow label={`Direct labour cost (${est.contingencyPct}% contingency included)`} value={`− ${fmtFull(totalDirectCost)}`} pctOf={totalDirectCost} base={revenue} isCost />
           <PLRow label="Labour Margin (LM)" value={fmtFull(labourMargin)} pctOf={labourMargin} base={revenue} bold highlight="indigo" />
           <PLRow label={`Delivery overhead (${est.overheadPct}% of revenue)`} value={`− ${fmtFull(overheadAmt)}`} pctOf={overheadAmt} base={revenue} isCost />

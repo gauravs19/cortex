@@ -1,100 +1,237 @@
-import { } from 'react'
+import { useState } from 'react'
+import { Gantt, ViewMode } from 'gantt-task-react'
+import type { Task } from 'gantt-task-react'
+import 'gantt-task-react/dist/index.css'
 import { useEstimatorStore, calcTotals } from '../../store/estimatorStore'
+import { ROLES } from '../../data/roles'
+import type { RoleId } from '../../types'
 
-// 7 sequential phases — each starts when the previous ends
-const DEFAULT_PHASES = [
-  { id: 'disc',  label: 'Discovery',      defaultPct: 0.10, bar: 'bg-indigo-500',  light: 'bg-indigo-50',  text: 'text-indigo-700',  desc: 'Requirements, stakeholder interviews, scope baseline' },
-  { id: 'design',label: 'Design',         defaultPct: 0.10, bar: 'bg-blue-500',    light: 'bg-blue-50',    text: 'text-blue-700',    desc: 'Architecture, UX design, technical design docs' },
-  { id: 'build', label: 'Implementation', defaultPct: 0.45, bar: 'bg-violet-500',  light: 'bg-violet-50',  text: 'text-violet-700',  desc: 'Development, integration, DevOps setup' },
-  { id: 'qa',    label: 'QA / Testing',   defaultPct: 0.15, bar: 'bg-amber-500',   light: 'bg-amber-50',   text: 'text-amber-700',   desc: 'System testing, regression, defect resolution' },
-  { id: 'uat',   label: 'UAT',            defaultPct: 0.10, bar: 'bg-orange-500',  light: 'bg-orange-50',  text: 'text-orange-700',  desc: 'User acceptance testing, stakeholder sign-off' },
-  { id: 'live',  label: 'Go-Live',        defaultPct: 0.05, bar: 'bg-green-500',   light: 'bg-green-50',   text: 'text-green-700',   desc: 'Cutover, production deployment, go-live support' },
-  { id: 'hyper', label: 'Hypercare',      defaultPct: 0.05, bar: 'bg-teal-500',    light: 'bg-teal-50',    text: 'text-teal-700',    desc: 'Post-launch stabilisation, critical bug resolution' },
+// ── Phase definitions ─────────────────────────────────────────
+
+const PHASES = [
+  { id: 'disc',   label: 'Discovery',      pct: 0.10, color: '#6366f1', light: 'bg-indigo-50',  text: 'text-indigo-700',  bar: 'bg-indigo-500' },
+  { id: 'design', label: 'Design',         pct: 0.10, color: '#3b82f6', light: 'bg-blue-50',    text: 'text-blue-700',    bar: 'bg-blue-500' },
+  { id: 'build',  label: 'Implementation', pct: 0.45, color: '#8b5cf6', light: 'bg-violet-50',  text: 'text-violet-700',  bar: 'bg-violet-500' },
+  { id: 'qa',     label: 'QA / Testing',   pct: 0.15, color: '#f59e0b', light: 'bg-amber-50',   text: 'text-amber-700',   bar: 'bg-amber-500' },
+  { id: 'uat',    label: 'UAT',            pct: 0.10, color: '#f97316', light: 'bg-orange-50',  text: 'text-orange-700',  bar: 'bg-orange-500' },
+  { id: 'live',   label: 'Go-Live',        pct: 0.05, color: '#22c55e', light: 'bg-green-50',   text: 'text-green-700',   bar: 'bg-green-500' },
+  { id: 'hyper',  label: 'Hypercare',      pct: 0.05, color: '#14b8a6', light: 'bg-teal-50',    text: 'text-teal-700',    bar: 'bg-teal-500' },
 ]
 
-const BAR_COLORS = DEFAULT_PHASES.map(p => p.bar)
-const LABEL_COLORS = DEFAULT_PHASES.map(p => p.text)
-
-// Map stream category / name → phase index
 function streamPhaseIndex(name: string): number {
   const n = name.toLowerCase()
   if (n.includes('discover') || n.includes('research') || n.includes('workshop') || n.includes('spike')) return 0
   if (n.includes('design') || n.includes('ux') || n.includes('arch')) return 1
-  if (n.includes('qa') || n.includes('test') && !n.includes('uat')) return 3
+  if (n.includes('qa') || (n.includes('test') && !n.includes('uat'))) return 3
   if (n.includes('uat')) return 4
   if (n.includes('go-live') || n.includes('cutover')) return 5
   if (n.includes('hypercare') || n.includes('hyper')) return 6
-  if (n.includes('pm') || n.includes('programme') || n.includes('delivery manag')) return -1 // full span
+  if (n.includes('pm') || n.includes('programme') || n.includes('delivery manag')) return 2
   if (n.includes('change manag') || n.includes('training')) return 4
   if (n.includes('devops') || n.includes('infra')) return 2
-  return 2 // default: build phase
+  return 2
 }
 
-function addWeeks(dateStr: string, weeks: number): string {
-  const d = new Date(dateStr)
-  d.setDate(d.getDate() + weeks * 7)
-  return d.toISOString().slice(0, 10)
+function addDays(base: Date, days: number): Date {
+  const d = new Date(base)
+  d.setDate(d.getDate() + days)
+  return d
 }
 
-function fmtDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+function fmtDate(d: Date) {
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 }
 
-function getPhaseIndex(week: number, cumWeeks: number[]): number {
-  for (let i = 0; i < cumWeeks.length; i++) {
-    if (week <= cumWeeks[i]) return i
-  }
-  return cumWeeks.length - 1
+// ── Custom tooltip ────────────────────────────────────────────
+
+type RichTask = Task & { _days?: number; _roles?: string }
+
+function CustomTooltip({ task }: { task: Task; fontSize: string; fontFamily: string }) {
+  const t = task as RichTask
+  return (
+    <div style={{ fontFamily: 'system-ui, sans-serif', fontSize: 12 }}
+      className="bg-white border border-slate-200 rounded-xl shadow-lg p-3 max-w-56 pointer-events-none">
+      <div className="font-bold text-slate-900 mb-1">{t.name}</div>
+      <div className="text-slate-500">{fmtDate(t.start)} → {fmtDate(t.end)}</div>
+      {(t._days ?? 0) > 0 && (
+        <div className="mt-1.5 font-semibold text-indigo-700">{t._days}d effort</div>
+      )}
+      {t._roles && (
+        <div className="mt-1 text-slate-500 leading-relaxed">{t._roles}</div>
+      )}
+    </div>
+  )
 }
+
+// ── Custom task list ──────────────────────────────────────────
+
+function CustomTaskListHeader({ headerHeight, rowWidth }: {
+  headerHeight: number; rowWidth: string; fontFamily: string; fontSize: string
+}) {
+  return (
+    <div style={{ height: headerHeight, width: rowWidth }}
+      className="flex items-end px-3 pb-2 border-b border-r border-slate-200 bg-slate-50">
+      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Work stream</span>
+    </div>
+  )
+}
+
+function CustomTaskListTable({ tasks, rowHeight, rowWidth, onExpanderClick }: {
+  tasks: Task[]; rowHeight: number; rowWidth: string; fontFamily: string; fontSize: string
+  locale: string; selectedTaskId: string; setSelectedTask: (id: string) => void
+  onExpanderClick: (task: Task) => void
+}) {
+  return (
+    <div className="border-r border-slate-200">
+      {tasks.map(t => {
+        const rt = t as RichTask
+        const isProject = t.type === 'project'
+        return (
+          <div key={t.id} style={{ height: rowHeight, width: rowWidth }}
+            className={`flex items-center px-3 border-b border-slate-100 ${isProject ? 'bg-slate-50' : 'bg-white'}`}>
+            {isProject ? (
+              <button onClick={() => onExpanderClick(t)} className="flex items-center gap-1.5 w-full text-left">
+                <span className="text-slate-400 text-xs">{t.hideChildren ? '▶' : '▼'}</span>
+                <span className="font-bold text-slate-800 text-xs truncate">{t.name}</span>
+              </button>
+            ) : (
+              <div className="flex items-center justify-between w-full gap-2">
+                <span className="text-xs text-slate-700 truncate pl-4">{t.name}</span>
+                {(rt._days ?? 0) > 0 && (
+                  <span className="text-xs font-semibold text-indigo-600 shrink-0">{rt._days}d</span>
+                )}
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ── Main component ─────────────────────────────────────────────
 
 export default function TimelineTab() {
   const { getActive, updateField } = useEstimatorStore()
   const est = getActive()
+  const [viewMode, setViewMode] = useState<ViewMode>(ViewMode.Week)
+  const [hiddenPhases, setHiddenPhases] = useState<Record<string, boolean>>({})
 
   if (!est) return null
 
   const startDate = est.startDate ?? new Date().toISOString().slice(0, 10)
+  const baseDate = new Date(startDate)
   const totals = calcTotals(est)
+  const totalWeeks = totals.calendarWeeks || 1
 
-  // Phase weeks — sequential, no overlap
-  const phaseWeeks = DEFAULT_PHASES.map(p => Math.max(1, Math.round(totals.calendarWeeks * p.defaultPct)))
-  // Normalise so they sum to calendarWeeks
-  const rawSum = phaseWeeks.reduce((a, b) => a + b, 0)
-  const scale = totals.calendarWeeks > 0 ? totals.calendarWeeks / rawSum : 1
-  const normPhaseWeeks = phaseWeeks.map(w => Math.max(1, Math.round(w * scale)))
-  const totalWeeks = normPhaseWeeks.reduce((a, b) => a + b, 0)
+  // Phase week allocations
+  const rawWeeks = PHASES.map(p => Math.max(1, Math.round(totalWeeks * p.pct)))
+  const rawSum = rawWeeks.reduce((a, b) => a + b, 0)
+  const scale = totalWeeks / rawSum
+  const normWeeks = rawWeeks.map(w => Math.max(1, Math.round(w * scale)))
 
-  // Cumulative end week per phase (1-indexed)
-  const cumWeeks: number[] = []
-  let cum = 0
-  for (const w of normPhaseWeeks) { cum += w; cumWeeks.push(cum) }
+  // Phase date ranges
+  let wOffset = 0
+  const phaseRanges = normWeeks.map(w => {
+    const start = addDays(baseDate, wOffset * 7)
+    const end = addDays(baseDate, (wOffset + w) * 7 - 1)
+    wOffset += w
+    return { start, end, weeks: w }
+  })
 
-  // Phase start weeks (1-indexed)
-  const phaseStartWeeks = [1, ...cumWeeks.slice(0, -1).map(c => c + 1)]
-
+  const projectEnd = phaseRanges[phaseRanges.length - 1].end
+  const avgHeadcount = Math.ceil(totals.baseDays / Math.max(totalWeeks * est.workingDaysPerWeek, 1)) || 1
   const sprintCount = Math.ceil(totalWeeks / est.sprintWeeks)
-  const avgHeadcount = totalWeeks > 0 ? Math.ceil(totals.baseDays / (totalWeeks * est.workingDaysPerWeek)) : 1
-  const weekLabels = Array.from({ length: totalWeeks }, (_, i) => i + 1)
-  const showEvery = totalWeeks <= 16 ? 1 : totalWeeks <= 28 ? 2 : 4
 
-  // Gantt rows per stream
-  const ganttRows = est.streams.map(stream => {
+  // Build gantt task list
+  const tasks: RichTask[] = []
+
+  PHASES.forEach((phase, i) => {
+    const { start, end } = phaseRanges[i]
+    tasks.push({
+      id: phase.id,
+      name: phase.label,
+      type: 'project',
+      start,
+      end,
+      progress: 0,
+      isDisabled: true,
+      hideChildren: hiddenPhases[phase.id] ?? false,
+      styles: {
+        backgroundColor: phase.color + '20',
+        backgroundSelectedColor: phase.color + '35',
+        progressColor: phase.color,
+        progressSelectedColor: phase.color,
+      },
+    })
+  })
+
+  for (const stream of est.streams) {
+    if (stream.costType === 'opex') continue
     const days = Object.values(stream.efforts).reduce((a, b) => a + (b ?? 0), 0)
-    if (days === 0) return null
+    if (days === 0) continue
+
     const phaseIdx = streamPhaseIndex(stream.name)
-    const isFullSpan = phaseIdx === -1
+    const { start: phaseStart, end: phaseEnd } = phaseRanges[phaseIdx]
 
-    if (isFullSpan) {
-      return { id: stream.id, name: stream.name, days, startWeek: 1, endWeek: totalWeeks, phaseIdx: 0 }
-    }
+    const phaseDays = normWeeks[phaseIdx] * est.workingDaysPerWeek
+    const durDays = Math.max(1, Math.round((days / Math.max(totals.baseDays, 1)) * phaseDays * 1.5))
+    const end = new Date(Math.min(addDays(phaseStart, durDays).getTime(), phaseEnd.getTime()))
 
-    const phaseStartW = phaseStartWeeks[phaseIdx]
-    const phaseEndW = cumWeeks[phaseIdx]
-    const streamWeeks = Math.max(1, Math.round((days / Math.max(totals.baseDays, 1)) * totalWeeks))
-    const startWeek = phaseStartW
-    const endWeek = Math.min(phaseStartW + streamWeeks - 1, phaseEndW)
-    return { id: stream.id, name: stream.name, days, startWeek, endWeek, phaseIdx }
-  }).filter(Boolean) as { id: string; name: string; days: number; startWeek: number; endWeek: number; phaseIdx: number }[]
+    const topRoles = (Object.entries(stream.efforts) as [RoleId, number][])
+      .filter(([, d]) => d > 0)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 3)
+      .map(([r, d]) => `${ROLES[r]?.name ?? r}: ${d}d`)
+      .join(' · ')
+
+    const phase = PHASES[phaseIdx]
+    tasks.push({
+      id: stream.id,
+      name: stream.name,
+      type: 'task',
+      project: phase.id,
+      start: phaseStart,
+      end,
+      progress: 0,
+      isDisabled: true,
+      styles: {
+        backgroundColor: phase.color + 'bb',
+        backgroundSelectedColor: phase.color,
+        progressColor: phase.color,
+        progressSelectedColor: phase.color,
+      },
+      _days: days,
+      _roles: topRoles,
+    })
+  }
+
+  // Sprint milestones
+  for (let s = 1; s <= sprintCount; s++) {
+    const ms = addDays(baseDate, s * est.sprintWeeks * 7)
+    if (ms > projectEnd) break
+    tasks.push({
+      id: `sprint-${s}`,
+      name: `S${s}`,
+      type: 'milestone',
+      start: ms,
+      end: ms,
+      progress: 0,
+      isDisabled: true,
+      styles: {
+        backgroundColor: '#94a3b8',
+        backgroundSelectedColor: '#64748b',
+        progressColor: '#94a3b8',
+        progressSelectedColor: '#64748b',
+      },
+    })
+  }
+
+  const handleExpanderClick = (task: Task) => {
+    setHiddenPhases(prev => ({ ...prev, [task.id]: !(prev[task.id] ?? false) }))
+  }
+
+  const hasData = tasks.filter(t => t.type === 'task').length > 0
 
   return (
     <div className="space-y-6">
@@ -109,7 +246,7 @@ export default function TimelineTab() {
             onChange={e => updateField('startDate', e.target.value)}
             className="w-full text-sm font-semibold text-slate-700 border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-400"
           />
-          <div className="text-xs text-slate-400 mt-1.5">End: {fmtDate(addWeeks(startDate, totalWeeks))}</div>
+          <div className="text-xs text-slate-400 mt-1.5">End: {fmtDate(projectEnd)}</div>
         </div>
         <div className="bg-white border border-slate-200 rounded-xl p-4">
           <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-2">Sprint length</label>
@@ -123,12 +260,12 @@ export default function TimelineTab() {
           </div>
         </div>
         <div className="bg-white border border-slate-200 rounded-xl p-4">
-          <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-2">Working days/week</label>
+          <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-2">Working days / week</label>
           <div className="flex gap-2">
             {[4, 5].map(d => (
               <button key={d} onClick={() => updateField('workingDaysPerWeek', d)}
                 className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors ${est.workingDaysPerWeek === d ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
-                {d} days
+                {d}d
               </button>
             ))}
           </div>
@@ -139,7 +276,7 @@ export default function TimelineTab() {
       <div className="grid grid-cols-4 gap-4">
         {[
           { label: 'Total days',     value: String(totals.totalDays),  sub: `${totals.baseDays}d + ${totals.contingencyDays}d buffer` },
-          { label: 'Calendar weeks', value: String(totalWeeks),        sub: `~${Math.round(totalWeeks / 4.3)} months · ${fmtDate(addWeeks(startDate, totalWeeks))}` },
+          { label: 'Calendar weeks', value: String(totalWeeks),        sub: `~${Math.round(totalWeeks / 4.3)} months · ends ${fmtDate(projectEnd)}` },
           { label: 'Sprints',        value: String(sprintCount),       sub: `${est.sprintWeeks}-week sprints` },
           { label: 'Avg team size',  value: String(avgHeadcount),      sub: 'FTE concurrent' },
         ].map(card => (
@@ -151,32 +288,26 @@ export default function TimelineTab() {
         ))}
       </div>
 
-      {/* Sequential phase timeline */}
+      {/* Phase overview bar */}
       <div className="bg-white border border-slate-200 rounded-xl p-5">
         <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4">Sequential delivery phases</div>
-        {/* Phase bar — sequential, no overlap */}
-        <div className="flex rounded-lg overflow-hidden h-10 mb-5">
-          {DEFAULT_PHASES.map((p, i) => (
-            <div
-              key={p.id}
-              className={`${p.bar} flex items-center justify-center text-white text-xs font-bold transition-all border-r border-white/30 last:border-0`}
-              style={{ width: `${(normPhaseWeeks[i] / totalWeeks) * 100}%` }}
-              title={`${p.label}: W${phaseStartWeeks[i]}–W${cumWeeks[i]} (${normPhaseWeeks[i]}w)`}
-            >
-              <span className="truncate px-1">{normPhaseWeeks[i]}w</span>
+        <div className="flex rounded-lg overflow-hidden h-10 mb-4">
+          {PHASES.map((p, i) => (
+            <div key={p.id}
+              className={`${p.bar} flex items-center justify-center text-white text-xs font-bold border-r border-white/30 last:border-0`}
+              style={{ width: `${(normWeeks[i] / totalWeeks) * 100}%` }}
+              title={`${p.label}: ${normWeeks[i]}w`}>
+              <span className="truncate px-1">{normWeeks[i]}w</span>
             </div>
           ))}
         </div>
-        {/* Phase details row */}
         <div className="grid grid-cols-7 gap-2">
-          {DEFAULT_PHASES.map((p, i) => (
+          {PHASES.map((p, i) => (
             <div key={p.id} className={`rounded-lg p-2.5 ${p.light}`}>
               <div className={`text-xs font-bold ${p.text}`}>{p.label}</div>
-              <div className="text-xs text-slate-500 mt-0.5">{normPhaseWeeks[i]}w</div>
-              <div className="text-xs text-slate-400 mt-0.5">
-                {fmtDate(addWeeks(startDate, phaseStartWeeks[i] - 1))} →
-              </div>
-              <div className="text-xs text-slate-400">{fmtDate(addWeeks(startDate, cumWeeks[i]))}</div>
+              <div className="text-xs text-slate-500 mt-0.5">{normWeeks[i]}w</div>
+              <div className="text-xs text-slate-400 mt-0.5">{fmtDate(phaseRanges[i].start)}</div>
+              <div className="text-xs text-slate-400">→ {fmtDate(phaseRanges[i].end)}</div>
             </div>
           ))}
         </div>
@@ -184,109 +315,49 @@ export default function TimelineTab() {
 
       {/* Gantt chart */}
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Gantt — stream schedule</div>
-          <span className="text-xs text-slate-400">{totalWeeks} weeks · {sprintCount} sprints · phases sequential</span>
-        </div>
-
-        <div className="overflow-x-auto">
-          <div style={{ minWidth: Math.max(700, totalWeeks * 28 + 200) }}>
-
-            {/* Phase header band */}
-            <div className="flex" style={{ marginLeft: 200 }}>
-              {DEFAULT_PHASES.map((p, i) => (
-                <div
-                  key={p.id}
-                  className={`${p.bar} text-white text-xs font-bold flex items-center justify-center py-2 border-r border-white/30`}
-                  style={{ width: `${(normPhaseWeeks[i] / totalWeeks) * 100}%` }}
-                >
-                  {p.label}
-                </div>
+        <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
+          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            Gantt — stream schedule
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-400">{sprintCount} sprints · phases sequential</span>
+            <div className="flex gap-1">
+              {([ViewMode.Week, ViewMode.Month] as ViewMode[]).map(m => (
+                <button key={m} onClick={() => setViewMode(m)}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${viewMode === m ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                  {m}
+                </button>
               ))}
             </div>
-
-            {/* Week header */}
-            <div className="flex border-b border-slate-100 bg-slate-50">
-              <div style={{ width: 200 }} className="px-4 py-2 text-xs font-semibold text-slate-400 uppercase shrink-0">Work stream</div>
-              <div className="flex flex-1">
-                {weekLabels.map(w => (
-                  <div key={w} className="text-center text-xs text-slate-400 py-2 border-r border-slate-100" style={{ width: `${100 / totalWeeks}%` }}>
-                    {w % showEvery === 0 ? `W${w}` : ''}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Phase boundary guide */}
-            <div className="flex border-b-2 border-slate-200">
-              <div style={{ width: 200 }} />
-              <div className="flex flex-1 relative">
-                {DEFAULT_PHASES.map((p, i) => {
-                  const startPct = (phaseStartWeeks[i] - 1) / totalWeeks * 100
-                  return (
-                    <div key={p.id} className={`absolute top-0 bottom-0 opacity-10 ${p.bar}`}
-                      style={{ left: `${startPct}%`, width: `${(normPhaseWeeks[i] / totalWeeks) * 100}%` }} />
-                  )
-                })}
-                {weekLabels.map(w => {
-                  const phaseIdx = getPhaseIndex(w, cumWeeks)
-                  const isSprintEnd = w % est.sprintWeeks === 0
-                  return (
-                    <div key={w} className={`relative py-1.5 border-r ${isSprintEnd ? 'border-slate-300' : 'border-slate-100'}`}
-                      style={{ width: `${100 / totalWeeks}%` }}>
-                      {isSprintEnd && (
-                        <div className={`text-center text-xs font-bold ${LABEL_COLORS[phaseIdx]} opacity-60`}>
-                          S{Math.ceil(w / est.sprintWeeks)}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* Stream rows */}
-            {ganttRows.map((row, rowIdx) => (
-              <div key={row.id} className={`flex items-center border-b border-slate-100 ${rowIdx % 2 === 1 ? 'bg-slate-50/40' : ''}`} style={{ height: 36 }}>
-                <div className="px-4 text-xs font-medium text-slate-700 truncate" style={{ width: 200 }}>
-                  {row.name}
-                </div>
-                <div className="flex flex-1 relative" style={{ height: 36 }}>
-                  {DEFAULT_PHASES.map((p, i) => (
-                    <div key={p.id} className={`absolute top-0 bottom-0 opacity-5 ${p.bar}`}
-                      style={{ left: `${(phaseStartWeeks[i] - 1) / totalWeeks * 100}%`, width: `${(normPhaseWeeks[i] / totalWeeks) * 100}%` }} />
-                  ))}
-                  {weekLabels.map(w => (
-                    <div key={w} className={`absolute top-0 bottom-0 border-r ${w % est.sprintWeeks === 0 ? 'border-slate-200' : 'border-slate-100/50'}`}
-                      style={{ left: `${(w / totalWeeks) * 100}%` }} />
-                  ))}
-                  <div
-                    className={`absolute top-2 bottom-2 rounded-md flex items-center px-2 opacity-90 ${BAR_COLORS[Math.min(row.phaseIdx, BAR_COLORS.length - 1)]}`}
-                    style={{
-                      left: `${((row.startWeek - 1) / totalWeeks) * 100}%`,
-                      width: `${Math.max(((row.endWeek - row.startWeek + 1) / totalWeeks) * 100, 1)}%`,
-                      minWidth: 4,
-                    }}
-                    title={`${row.name}: W${row.startWeek}–W${row.endWeek} (${row.days}d)`}
-                  >
-                    <span className="text-white text-xs font-semibold truncate">{row.days}d</span>
-                  </div>
-                </div>
-              </div>
-            ))}
           </div>
         </div>
 
-        {/* Legend */}
-        <div className="px-5 py-3 border-t border-slate-100 flex flex-wrap gap-4">
-          {DEFAULT_PHASES.map((p, i) => (
-            <div key={p.id} className="flex items-center gap-2">
-              <div className={`w-3 h-3 rounded-sm ${p.bar}`} />
-              <span className={`text-xs font-semibold ${p.text}`}>{p.label}</span>
-              <span className="text-xs text-slate-400">{normPhaseWeeks[i]}w · {fmtDate(addWeeks(startDate, phaseStartWeeks[i] - 1))}</span>
-            </div>
-          ))}
-        </div>
+        {hasData ? (
+          <Gantt
+            tasks={tasks}
+            viewMode={viewMode}
+            viewDate={baseDate}
+            locale="en-GB"
+            rowHeight={40}
+            headerHeight={50}
+            columnWidth={viewMode === ViewMode.Week ? 65 : 220}
+            listCellWidth="240px"
+            barFill={75}
+            barCornerRadius={4}
+            fontSize="12px"
+            fontFamily="system-ui, -apple-system, sans-serif"
+            todayColor="rgba(99,102,241,0.10)"
+            ganttHeight={Math.min(tasks.length * 40 + 70, 580)}
+            TooltipContent={CustomTooltip}
+            TaskListTable={CustomTaskListTable}
+            TaskListHeader={CustomTaskListHeader}
+            onExpanderClick={handleExpanderClick}
+          />
+        ) : (
+          <div className="px-5 py-12 text-center text-sm text-slate-400">
+            No streams with effort — add line items or fill the stream matrix first.
+          </div>
+        )}
       </div>
     </div>
   )
