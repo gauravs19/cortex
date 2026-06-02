@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Plus, Trash2, Wand2 } from 'lucide-react'
+import { Plus, Trash2, Wand2, RefreshCw } from 'lucide-react'
 import { useEstimatorStore } from '../../store/estimatorStore'
 import { ROLES, CATEGORY_LABELS } from '../../data/roles'
+import { getReferenceStreams } from '../../data/streamConfigurator'
 import StreamConfigWizard from '../estimator/StreamConfigWizard'
 import type { RoleId, StreamCategory } from '../../types'
 
@@ -42,6 +43,31 @@ export default function StreamsTab() {
   const grandTotal = capexStreams.reduce((sum, s) =>
     sum + Object.values(s.efforts).reduce((a, b) => a + (b ?? 0), 0), 0)
 
+  // Load reference effort for blank streams (totalDays = 0)
+  const loadReferenceEffort = (streamId?: string) => {
+    const cfg = est.streamConfig
+    if (!cfg) return
+    const refStreams = getReferenceStreams(cfg, est.workType)
+    const refById = new Map(refStreams.map(s => [s.id, s]))
+    const updated = est.streams.map(s => {
+      if (streamId && s.id !== streamId) return s
+      const days = Object.values(s.efforts).reduce((a, b) => a + (b ?? 0), 0)
+      if (days > 0) return s // already has effort — never overwrite
+      const ref = refById.get(s.id)
+      return ref ? { ...s, efforts: ref.efforts } : s
+    })
+    setStreams(
+      updated,
+      cfg,
+      updated.flatMap(s => Object.keys(s.efforts)).filter((r, i, a) => a.indexOf(r) === i).concat('PM')
+        .filter((v, i, a) => a.indexOf(v) === i) as RoleId[]
+    )
+  }
+
+  const blankStreamCount = capexStreams.filter(
+    s => Object.values(s.efforts).reduce((a, b) => a + (b ?? 0), 0) === 0
+  ).length
+
   const sym = est.currency === 'GBP' ? '£' : est.currency === 'USD' ? '$' : est.currency === 'EUR' ? '€' : '₹'
   const mult = est.currency === 'GBP' ? 1 : est.currency === 'USD' ? 1.27 : est.currency === 'EUR' ? 1.17 : 105
   const totalMonthlyOpex = opexStreams.reduce((sum, s) => sum + ((s.monthlyRate ?? 0) * mult), 0)
@@ -62,7 +88,7 @@ export default function StreamsTab() {
       )}
 
       {/* Toolbar */}
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowWizard(!showWizard)}
@@ -70,10 +96,37 @@ export default function StreamsTab() {
           >
             <Wand2 size={13} /> {showWizard ? 'Close configurator' : 'Reconfigure streams'}
           </button>
-          <span className="text-xs text-slate-400">or edit the matrix below directly</span>
+          {blankStreamCount > 0 && (
+            <button
+              onClick={() => loadReferenceEffort()}
+              title="Fills effort only for streams that are still blank (0 days). Won't overwrite anything you've entered."
+              className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 text-slate-700 text-xs font-semibold rounded-xl hover:bg-slate-200 transition-colors border border-slate-200"
+            >
+              <RefreshCw size={12} /> Load reference effort
+              <span className="ml-0.5 text-slate-400">({blankStreamCount} blank)</span>
+            </button>
+          )}
         </div>
         <div className="text-xs text-slate-400">{capexStreams.length} CapEx · {opexStreams.length} OpEx streams</div>
       </div>
+
+      {/* Empty-state prompt */}
+      {grandTotal === 0 && capexStreams.length > 0 && (
+        <div className="bg-indigo-50 border border-indigo-200 rounded-xl px-5 py-4 flex items-center justify-between gap-4">
+          <div>
+            <div className="text-sm font-bold text-indigo-800">No effort entered yet</div>
+            <div className="text-xs text-indigo-600 mt-0.5">
+              Fill the matrix below with days per role, or load a starting point from reference values.
+            </div>
+          </div>
+          <button
+            onClick={() => loadReferenceEffort()}
+            className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl hover:bg-indigo-700 transition-colors shrink-0"
+          >
+            <RefreshCw size={13} /> Load reference effort
+          </button>
+        </div>
+      )}
 
       {/* Role selector */}
       <div className="bg-white border border-slate-200 rounded-xl p-4">
@@ -132,9 +185,20 @@ export default function StreamsTab() {
                             onKeyDown={e => e.key === 'Enter' && setEditingId(null)}
                           />
                         ) : (
-                          <button onClick={() => setEditingId(stream.id)} className="text-xs font-medium text-slate-700 hover:text-indigo-600 text-left truncate w-full">
-                            {stream.name}
-                          </button>
+                          <div className="flex items-center gap-1.5 group">
+                            <button onClick={() => setEditingId(stream.id)} className="text-xs font-medium text-slate-700 hover:text-indigo-600 text-left truncate flex-1">
+                              {stream.name}
+                            </button>
+                            {streamTotal(stream.id) === 0 && (
+                              <button
+                                onClick={() => loadReferenceEffort(stream.id)}
+                                title="Load reference effort for this stream"
+                                className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 px-1.5 py-0.5 text-xs text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-all"
+                              >
+                                <RefreshCw size={10} /> ref
+                              </button>
+                            )}
+                          </div>
                         )}
                       </td>
                       {roles.map(r => (

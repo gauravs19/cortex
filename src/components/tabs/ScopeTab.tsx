@@ -3,7 +3,7 @@ import { Check, RotateCcw, ChevronDown, ChevronRight } from 'lucide-react'
 import { useEstimatorStore } from '../../store/estimatorStore'
 import {
   WORK_TYPES, WORK_TYPE_DEFAULTS, WORK_TYPE_SCOPE_QUESTIONS,
-  generateStreams, getActiveRolesFromStreams,
+  generateStreams, getActiveRolesFromStreams, mergeStreams, setBlankMode,
 } from '../../data/streamConfigurator'
 import { CATEGORY_LABELS } from '../../data/roles'
 import type { StreamConfig } from '../../types'
@@ -71,16 +71,24 @@ export default function ScopeTab() {
   const applyWorkType = (wt: string) => {
     const defaults = WORK_TYPE_DEFAULTS[wt] ?? WORK_TYPE_DEFAULTS['']
     setWorkType(wt, false)
-    const streams = generateStreams(defaults, wt)
-    setStreams(streams, defaults, getActiveRolesFromStreams(streams))
+    // Generate blank structure then merge — preserves any effort already entered
+    setBlankMode(true)
+    const newStreams = generateStreams(defaults, wt)
+    setBlankMode(false)
+    const merged = mergeStreams(est.streams, newStreams)
+    setStreams(merged, defaults, getActiveRolesFromStreams(merged))
     setCustomised(false)
     setLastAutoLabels(WORK_TYPE_AUTO_LABELS[wt] ?? [])
   }
 
   const updateCfg = (patch: Partial<StreamConfig>) => {
     const next = { ...cfg, ...patch }
-    const streams = generateStreams(next, est.workType)
-    setStreams(streams, next, getActiveRolesFromStreams(streams))
+    // Generate blank structure then merge — scope changes never overwrite entered effort
+    setBlankMode(true)
+    const newStreams = generateStreams(next, est.workType)
+    setBlankMode(false)
+    const merged = mergeStreams(est.streams, newStreams)
+    setStreams(merged, next, getActiveRolesFromStreams(merged))
     setCustomised(true)
     setLastAutoLabels([])
   }
@@ -115,8 +123,11 @@ export default function ScopeTab() {
 
   const resetToDefaults = () => {
     const defaults = WORK_TYPE_DEFAULTS[est.workType] ?? WORK_TYPE_DEFAULTS['']
+    setBlankMode(true)
     const streams = generateStreams(defaults, est.workType)
-    setStreams(streams, defaults, getActiveRolesFromStreams(streams))
+    setBlankMode(false)
+    const merged = mergeStreams(est.streams, streams)
+    setStreams(merged, defaults, getActiveRolesFromStreams(merged))
     setCustomised(false)
     setLastAutoLabels(WORK_TYPE_AUTO_LABELS[est.workType] ?? [])
   }
