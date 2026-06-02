@@ -27,7 +27,8 @@ export default function Settings() {
   const { settings, updateSettings, setRate, setEffortScale, resetRates, resetEffortScale } = useSettingsStore()
   const sym = CURRENCY_SYMBOLS[settings.currency] ?? '$'
   const fx = settings.fxRates ?? DEFAULT_SETTINGS.fxRates
-  const mult = settings.currency === 'GBP' ? 1 : settings.currency === 'USD' ? fx.USD : settings.currency === 'EUR' ? fx.EUR : fx.INR
+  const fxTyped = fx as Record<string, number>
+  const mult = settings.currency === 'USD' ? 1 : fxTyped[settings.currency] ?? 1
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -222,16 +223,17 @@ export default function Settings() {
           sub="Applied to all currency conversions. Base = GBP 1.0"
           action={<button onClick={() => updateSettings({ fxRates: DEFAULT_SETTINGS.fxRates })} className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 transition-colors"><RotateCcw size={12} /> Reset</button>}
         >
+          <p className="text-xs text-slate-400 mb-3">USD is the base currency (1.0). All other currencies are expressed as "1 $ = X".</p>
           <div className="grid grid-cols-3 gap-4">
-            {(['USD', 'EUR', 'INR'] as const).map(cur => (
+            {(['GBP', 'EUR', 'INR'] as const).map(cur => (
               <div key={cur} className="bg-white border border-slate-200 rounded-xl p-4">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">GBP → {cur}</label>
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">USD → {cur}</label>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-slate-500">1 £ =</span>
+                  <span className="text-sm font-semibold text-slate-500">1 $ =</span>
                   <input
                     type="number" min={0} step={0.01}
-                    value={(settings.fxRates ?? DEFAULT_SETTINGS.fxRates)[cur]}
-                    onChange={e => updateSettings({ fxRates: { ...(settings.fxRates ?? DEFAULT_SETTINGS.fxRates), [cur]: parseFloat(e.target.value) || 1 } })}
+                    value={(settings.fxRates as Record<string, number> ?? DEFAULT_SETTINGS.fxRates)[cur] ?? 1}
+                    onChange={e => updateSettings({ fxRates: { ...(settings.fxRates ?? DEFAULT_SETTINGS.fxRates), [cur]: parseFloat(e.target.value) || 1 } as typeof DEFAULT_SETTINGS.fxRates })}
                     className="flex-1 text-sm font-black text-indigo-700 text-right border border-indigo-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-indigo-400 bg-indigo-50"
                   />
                   <span className="text-sm font-semibold text-slate-500">{CURRENCY_SYMBOLS[cur]}</span>

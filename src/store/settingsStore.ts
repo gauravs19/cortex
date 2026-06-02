@@ -21,8 +21,8 @@ export interface FirmSettings {
     simple: number; medium: number; complex: number
     infraMinimal: number; infraStandard: number; infraComplex: number
   }
-  // FX conversion rates (base = GBP 1.0)
-  fxRates: { USD: number; EUR: number; INR: number }
+  // FX conversion rates (base = USD 1.0) — values mean "1 USD = X"
+  fxRates: { GBP: number; EUR: number; INR: number }
   // Default cost rate as % of billing rate (used when costRateCard not set per role)
   defaultCostRatePct: number
   // Contingency % applied when a risk band is selected
@@ -59,15 +59,15 @@ export const DEFAULT_SETTINGS: FirmSettings = {
   defaultProjectMonths: 6,
   rateCard: DEFAULT_RATE_CARD,
   useBlendedRate: false,
-  blendedRate: 600,
+  blendedRate: 750,
   effortScale: { simple: 0.7, medium: 1.0, complex: 1.5, infraMinimal: 0.4, infraStandard: 1.0, infraComplex: 1.8 },
-  fxRates: { USD: 1.27, EUR: 1.17, INR: 105 },
+  fxRates: { GBP: 0.79, EUR: 0.92, INR: 82.7 },
   defaultCostRatePct: 55,
   contingencyByBand: { green: 10, amber: 20, red: 35, black: 50, unknown: 20 },
   marginThresholds: { green: 30, amber: 15 },
   opexDefaults: { cloudStandard: 3000, cloudComplex: 8000, onPremStandard: 2000, onPremComplex: 5000, monitoring: 500 },
   phaseSplits: { discovery: 10, design: 10, build: 45, qa: 15, uat: 10, golive: 5, hypercare: 5 },
-  fallbackDayRate: 600,
+  fallbackDayRate: 750,
 }
 
 export interface SettingsStore {
