@@ -3,19 +3,20 @@ import { Gantt, ViewMode } from 'gantt-task-react'
 import type { Task } from 'gantt-task-react'
 import 'gantt-task-react/dist/index.css'
 import { useEstimatorStore, calcTotals } from '../../store/estimatorStore'
+import { useSettingsStore } from '../../store/settingsStore'
 import { ROLES } from '../../data/roles'
 import type { RoleId } from '../../types'
 
-// ── Phase definitions ─────────────────────────────────────────
+// ── Phase meta — colour/label only; split % come from settings ─
 
-const PHASES = [
-  { id: 'disc',   label: 'Discovery',      pct: 0.10, color: '#6366f1', light: 'bg-indigo-50',  text: 'text-indigo-700',  bar: 'bg-indigo-500' },
-  { id: 'design', label: 'Design',         pct: 0.10, color: '#3b82f6', light: 'bg-blue-50',    text: 'text-blue-700',    bar: 'bg-blue-500' },
-  { id: 'build',  label: 'Implementation', pct: 0.45, color: '#8b5cf6', light: 'bg-violet-50',  text: 'text-violet-700',  bar: 'bg-violet-500' },
-  { id: 'qa',     label: 'QA / Testing',   pct: 0.15, color: '#f59e0b', light: 'bg-amber-50',   text: 'text-amber-700',   bar: 'bg-amber-500' },
-  { id: 'uat',    label: 'UAT',            pct: 0.10, color: '#f97316', light: 'bg-orange-50',  text: 'text-orange-700',  bar: 'bg-orange-500' },
-  { id: 'live',   label: 'Go-Live',        pct: 0.05, color: '#22c55e', light: 'bg-green-50',   text: 'text-green-700',   bar: 'bg-green-500' },
-  { id: 'hyper',  label: 'Hypercare',      pct: 0.05, color: '#14b8a6', light: 'bg-teal-50',    text: 'text-teal-700',    bar: 'bg-teal-500' },
+const PHASE_META = [
+  { id: 'disc',   key: 'discovery' as const, label: 'Discovery',      color: '#6366f1', light: 'bg-indigo-50',  text: 'text-indigo-700',  bar: 'bg-indigo-500' },
+  { id: 'design', key: 'design'    as const, label: 'Design',         color: '#3b82f6', light: 'bg-blue-50',    text: 'text-blue-700',    bar: 'bg-blue-500' },
+  { id: 'build',  key: 'build'     as const, label: 'Implementation', color: '#8b5cf6', light: 'bg-violet-50',  text: 'text-violet-700',  bar: 'bg-violet-500' },
+  { id: 'qa',     key: 'qa'        as const, label: 'QA / Testing',   color: '#f59e0b', light: 'bg-amber-50',   text: 'text-amber-700',   bar: 'bg-amber-500' },
+  { id: 'uat',    key: 'uat'        as const, label: 'UAT',           color: '#f97316', light: 'bg-orange-50',  text: 'text-orange-700',  bar: 'bg-orange-500' },
+  { id: 'live',   key: 'golive'    as const, label: 'Go-Live',        color: '#22c55e', light: 'bg-green-50',   text: 'text-green-700',   bar: 'bg-green-500' },
+  { id: 'hyper',  key: 'hypercare' as const, label: 'Hypercare',      color: '#14b8a6', light: 'bg-teal-50',    text: 'text-teal-700',    bar: 'bg-teal-500' },
 ]
 
 function streamPhaseIndex(name: string): number {
@@ -116,6 +117,11 @@ export default function TimelineTab() {
   const est = getActive()
   const [viewMode, setViewMode] = useState<ViewMode>(ViewMode.Week)
   const [hiddenPhases, setHiddenPhases] = useState<Record<string, boolean>>({})
+
+  const { phaseSplits } = useSettingsStore(s => s.settings)
+  const splits = phaseSplits ?? { discovery: 10, design: 10, build: 45, qa: 15, uat: 10, golive: 5, hypercare: 5 }
+  // Build PHASES with current split % from settings
+  const PHASES = PHASE_META.map(p => ({ ...p, pct: (splits[p.key] ?? 10) / 100 }))
 
   if (!est) return null
 

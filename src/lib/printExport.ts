@@ -1,9 +1,10 @@
 import type { Estimate } from '../types'
 import { ROLES } from '../data/roles'
 import { DEFAULT_WORK_ITEM_BANK, getWorkItemById, computeLineItemEfforts } from '../data/workItemBank'
+import { useSettingsStore } from '../store/settingsStore'
 
 const PHASE_LABELS = ['Discovery', 'Design', 'Implementation', 'QA / Testing', 'UAT', 'Go-Live', 'Hypercare']
-const PHASE_PCTS   = [0.10, 0.10, 0.45, 0.15, 0.10, 0.05, 0.05]
+const DEFAULT_PHASE_PCTS = [0.10, 0.10, 0.45, 0.15, 0.10, 0.05, 0.05]
 
 function addWeeks(dateStr: string, weeks: number) {
   const d = new Date(dateStr); d.setDate(d.getDate() + weeks * 7)
@@ -13,6 +14,15 @@ function addWeeks(dateStr: string, weeks: number) {
 export function generateEstimatePrint(est: Estimate, sym: string, mult: number): void {
   const fmt = (n: number) => `${sym}${Math.round(n).toLocaleString()}`
   const fmtK = (n: number) => `${sym}${Math.round(n / 1000)}k`
+
+  // Settings-driven values
+  const settings = useSettingsStore.getState().settings
+  const costPct = (settings.defaultCostRatePct ?? 55) / 100
+  const fallback = settings.fallbackDayRate ?? 600
+  const ps = settings.phaseSplits
+  const PHASE_PCTS = ps
+    ? [ps.discovery, ps.design, ps.build, ps.qa, ps.uat, ps.golive, ps.hypercare].map(v => (v ?? 10) / 100)
+    : DEFAULT_PHASE_PCTS
 
   // Effort source
   const effortByRole: Record<string, number> = {}
@@ -35,17 +45,24 @@ export function generateEstimatePrint(est: Estimate, sym: string, mult: number):
       }
     }
   }
+  const contingencyFactor = 1 + est.contingencyPct / 100
   const contingencyDays = Math.round(baseDays * est.contingencyPct / 100)
   const totalDays = baseDays + contingencyDays
-  let baseCost = 0
+  // Two-rate model: revenue = billing rate × days; direct cost = cost rate × days
+  let baseRevenue = 0, baseDirectCost = 0
+  const costRates = est.costRateCard ?? {}
   for (const [r, d] of Object.entries(effortByRole)) {
-    const rate = ((est.rateCard[r as keyof typeof est.rateCard] ?? ROLES[r as keyof typeof ROLES]?.defaultRate ?? 600) * mult)
-    baseCost += d * rate
+    const billRate = (est.rateCard[r as keyof typeof est.rateCard] ?? ROLES[r as keyof typeof ROLES]?.defaultRate ?? fallback) * mult
+    const costRate = (costRates[r as keyof typeof costRates] ?? Math.round(billRate * costPct / mult)) * mult
+    baseRevenue += d * billRate
+    baseDirectCost += d * costRate
   }
-  const contingencyCost = baseCost * est.contingencyPct / 100
-  const totalCost = (baseCost + contingencyCost) * (1 + est.overheadPct / 100)
-  const sellPrice = totalCost / (1 - est.targetMarginPct / 100)
-  const margin = sellPrice - totalCost
+  const sellPrice = baseRevenue * contingencyFactor
+  const directCost = baseDirectCost * contingencyFactor
+  const labourMargin = sellPrice - directCost
+  const overhead = sellPrice * est.overheadPct / 100
+  const margin = labourMargin
+  void directCost  // referenced in template via directCost directly
   const activeHeadcount = Object.values(effortByRole).filter(d => d > 0).length || 1
   const calendarWeeks = Math.ceil(totalDays / (activeHeadcount * est.workingDaysPerWeek))
   const startDate = est.startDate ?? new Date().toISOString().slice(0, 10)
@@ -115,11 +132,11 @@ h2{font-size:13px;font-weight:800;color:#6366f1;text-transform:uppercase;letter-
 
 <h2>Cost build-up</h2>
 <table class="cost-table">
-<tr><td>Base effort cost</td><td>${fmt(baseCost)}</td></tr>
-<tr><td>Contingency (${est.contingencyPct}%)</td><td>+ ${fmt(contingencyCost)}</td></tr>
-<tr><td>Overhead (${est.overheadPct}%)</td><td>+ ${fmt(totalCost - baseCost - contingencyCost)}</td></tr>
-<tr><td>Margin (${est.targetMarginPct}%)</td><td>+ ${fmt(margin)}</td></tr>
-<tr class="cost-total"><td>Total sell price</td><td>${fmt(sellPrice)}</td></tr>
+<tr><td>Revenue (billing rate × days, incl. ${est.contingencyPct}% contingency)</td><td>${fmt(sellPrice)}</td></tr>
+<tr><td>Direct labour cost (cost rate × days)</td><td>− ${fmt(directCost)}</td></tr>
+<tr><td>Labour Margin (LM)</td><td>${fmt(labourMargin)} (${sellPrice > 0 ? Math.round(labourMargin/sellPrice*100) : 0}%)</td></tr>
+<tr><td>Delivery overhead (${est.overheadPct}%)</td><td>− ${fmt(overhead)}</td></tr>
+<tr class="cost-total"><td>Gross Margin (GM)</td><td>${fmt(margin - overhead)}</td></tr>
 </table>
 ${opexMonthly > 0 ? `<div class="opex"><strong>OpEx (ongoing monthly):</strong> ${fmt(opexMonthly)}/mo · ${fmt(opexMonthly*12)}/yr</div>` : ''}
 

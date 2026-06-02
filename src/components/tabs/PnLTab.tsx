@@ -1,12 +1,18 @@
 import { useState } from 'react'
 import { Plus, X, Check } from 'lucide-react'
 import { useEstimatorStore, calcTotals } from '../../store/estimatorStore'
+import { useSettingsStore } from '../../store/settingsStore'
 import type { PnlAdjustment } from '../../types'
 
-function trafficLight(pct: number) {
-  if (pct >= 30) return { text: 'text-green-700', bg: 'bg-green-50', bar: 'bg-green-500' }
-  if (pct >= 15) return { text: 'text-amber-700', bg: 'bg-amber-50', bar: 'bg-amber-500' }
-  return { text: 'text-red-600', bg: 'bg-red-50', bar: 'bg-red-400' }
+function useTrafficLight() {
+  const { marginThresholds } = useSettingsStore(s => s.settings)
+  const green = marginThresholds?.green ?? 30
+  const amber = marginThresholds?.amber ?? 15
+  return (pct: number) => ({
+    text: pct >= green ? 'text-green-700' : pct >= amber ? 'text-amber-700' : 'text-red-600',
+    bg:   pct >= green ? 'bg-green-50'    : pct >= amber ? 'bg-amber-50'    : 'bg-red-50',
+    bar:  pct >= green ? 'bg-green-500'   : pct >= amber ? 'bg-amber-500'   : 'bg-red-400',
+  })
 }
 
 function fmtPct(pct: number) {
@@ -144,7 +150,7 @@ function WaterfallRow({
   highlight?: 'indigo' | 'violet' | 'green'; isCost?: boolean; bold?: boolean; indent?: boolean
 }) {
   const barPct = Math.min(Math.abs(pct), 100)
-  const tl = highlight ? trafficLight(pct) : null
+  const tl = highlight ? { text: highlight === 'indigo' ? 'text-indigo-700' : highlight === 'violet' ? 'text-violet-700' : 'text-green-700', bg: '', bar: highlight === 'indigo' ? 'bg-indigo-400' : highlight === 'violet' ? 'bg-violet-400' : 'bg-green-400' } : null
   const rowBg = highlight === 'indigo' ? 'bg-indigo-50' : highlight === 'violet' ? 'bg-violet-50' : highlight === 'green' ? 'bg-green-50' : ''
   const valColor = highlight === 'indigo' ? 'text-indigo-700' : highlight === 'violet' ? 'text-violet-700' : highlight === 'green' ? 'text-green-700' : isCost ? 'text-red-600' : 'text-slate-800'
   return (
@@ -169,6 +175,7 @@ function WaterfallRow({
 // ── Main component ─────────────────────────────────────────────
 
 export default function PnLTab() {
+  const trafficLight = useTrafficLight()
   const { getActive, updateField, addPnlAdjustment, updatePnlAdjustment, removePnlAdjustment } = useEstimatorStore()
   const est = getActive()
   if (!est) return null

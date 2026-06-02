@@ -393,17 +393,17 @@ export function generateStreams(cfg: StreamConfig, workType = ''): EstimateStrea
   }
 
   // ── Infrastructure — OpEx (ongoing monthly costs) ─────────
+  const opexCfg = useSettingsStore.getState().settings.opexDefaults ?? { cloudStandard: 3000, cloudComplex: 8000, onPremStandard: 2000, onPremComplex: 5000, monitoring: 500 }
   if (isCloud && cfg.infraScope !== 'minimal') {
-    const monthlyCloud = cfg.infraScope === 'complex' ? 8000 : 3000
+    const monthlyCloud = cfg.infraScope === 'complex' ? opexCfg.cloudComplex : opexCfg.cloudStandard
     streams.push(opex('infra-cloud', 'Cloud Infrastructure Running Cost (OpEx)', 'infra', monthlyCloud))
   }
   if (isOnPrem) {
-    const monthlyOnprem = cfg.infraScope === 'complex' ? 5000 : 2000
+    const monthlyOnprem = cfg.infraScope === 'complex' ? opexCfg.onPremComplex : opexCfg.onPremStandard
     streams.push(opex('infra-onprem', 'On-Prem Hosting & Licensing (OpEx)', 'infra', monthlyOnprem))
   }
-  // Monitoring / observability OpEx
   if (cfg.infraScope !== 'minimal') {
-    streams.push(opex('infra-mon', 'Monitoring & Observability Tools (OpEx)', 'infra', 500))
+    streams.push(opex('infra-mon', 'Monitoring & Observability Tools (OpEx)', 'infra', opexCfg.monitoring))
   }
 
   // ── Security ─────────────────────────────────────────────
