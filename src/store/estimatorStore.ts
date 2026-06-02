@@ -50,7 +50,7 @@ function createEstimate(name = '', workType = ''): Estimate {
     costRateCard: getSettingsCostRateCard(),
     currency: settings.currency,
     targetMarginPct: settings.defaultMarginPct,
-    contingencyPct: CONTINGENCY_BY_BAND['unknown'],
+    contingencyPct: (useSettingsStore.getState().settings.contingencyByBand?.unknown ?? CONTINGENCY_BY_BAND['unknown']),
     contingencyLocked: false,
     sprintWeeks: settings.defaultSprintWeeks,
     workingDaysPerWeek: settings.defaultWorkingDaysPerWeek,
@@ -144,7 +144,8 @@ export const useEstimatorStore = create<EstimatorStore>()(
         if (!activeId) return
         const est = estimates.find(e => e.id === activeId)
         if (!est) return
-        const contingencyPct = est.contingencyLocked ? est.contingencyPct : (CONTINGENCY_BY_BAND[band] ?? 20)
+        const bandTable = useSettingsStore.getState().settings.contingencyByBand ?? CONTINGENCY_BY_BAND
+        const contingencyPct = est.contingencyLocked ? est.contingencyPct : (bandTable[band] ?? 20)
         set(s => ({ estimates: s.estimates.map(e => e.id === activeId ? { ...e, riskBand: band, contingencyPct, updatedAt: new Date().toISOString() } : e) }))
       },
 
@@ -525,7 +526,9 @@ export const useEstimatorStore = create<EstimatorStore>()(
 // ── Derived helpers ──────────────────────────────────────────
 
 function currencyMult(c: string) {
-  return c === 'GBP' ? 1 : c === 'USD' ? 1.27 : c === 'EUR' ? 1.17 : 105
+  const { fxRates } = useSettingsStore.getState().settings
+  const rates = fxRates ?? { USD: 1.27, EUR: 1.17, INR: 105 }
+  return c === 'GBP' ? 1 : c === 'USD' ? rates.USD : c === 'EUR' ? rates.EUR : rates.INR
 }
 function currencySym(c: string) {
   return c === 'GBP' ? '£' : c === 'USD' ? '$' : c === 'EUR' ? '€' : '₹'
@@ -579,9 +582,13 @@ export function calcTotals(est: Estimate) {
 
   // Cost side: cost rates (what the firm pays the team)
   const costRates = est.costRateCard ?? {}
+  const { defaultCostRatePct, fallbackDayRate } = useSettingsStore.getState().settings
+  const costPct = (defaultCostRatePct ?? 55) / 100
+  const fallback = fallbackDayRate ?? 600
   let baseDirectCost = 0
   for (const [role, days] of Object.entries(effortByRole) as [RoleId, number][]) {
-    const costRate = (costRates[role as RoleId] ?? Math.round((est.rateCard[role as RoleId] ?? ROLES[role as RoleId]?.defaultRate ?? 600) * 0.55)) * mult
+    const billBase = est.rateCard[role as RoleId] ?? ROLES[role as RoleId]?.defaultRate ?? fallback
+    const costRate = (costRates[role as RoleId] ?? Math.round(billBase * costPct)) * mult
     baseDirectCost += days * costRate
   }
   const directCost = baseDirectCost * contingencyFactor
