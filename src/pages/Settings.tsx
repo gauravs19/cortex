@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, RotateCcw, Plus, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
-import { useSettingsStore } from '../store/settingsStore'
+import { useSettingsStore, DEFAULT_SETTINGS } from '../store/settingsStore'
 import { ROLES, CURRENCY_SYMBOLS, CATEGORY_LABELS } from '../data/roles'
 import { DEFAULT_WORK_ITEM_BANK } from '../data/workItemBank'
 import type { RoleId, Currency, WorkItemDefinition } from '../types'
@@ -26,7 +26,8 @@ export default function Settings() {
   const navigate = useNavigate()
   const { settings, updateSettings, setRate, setEffortScale, resetRates, resetEffortScale } = useSettingsStore()
   const sym = CURRENCY_SYMBOLS[settings.currency] ?? '$'
-  const mult = settings.currency === 'GBP' ? 1 : settings.currency === 'USD' ? 1.27 : settings.currency === 'EUR' ? 1.17 : 105
+  const fx = settings.fxRates ?? DEFAULT_SETTINGS.fxRates
+  const mult = settings.currency === 'GBP' ? 1 : settings.currency === 'USD' ? fx.USD : settings.currency === 'EUR' ? fx.EUR : fx.INR
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -213,6 +214,200 @@ export default function Settings() {
               </div>
             ))}
           </div>
+        </Section>
+
+        {/* FX rates */}
+        <Section
+          title="FX conversion rates"
+          sub="Applied to all currency conversions. Base = GBP 1.0"
+          action={<button onClick={() => updateSettings({ fxRates: DEFAULT_SETTINGS.fxRates })} className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 transition-colors"><RotateCcw size={12} /> Reset</button>}
+        >
+          <div className="grid grid-cols-3 gap-4">
+            {(['USD', 'EUR', 'INR'] as const).map(cur => (
+              <div key={cur} className="bg-white border border-slate-200 rounded-xl p-4">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-2">GBP → {cur}</label>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-slate-500">1 £ =</span>
+                  <input
+                    type="number" min={0} step={0.01}
+                    value={(settings.fxRates ?? DEFAULT_SETTINGS.fxRates)[cur]}
+                    onChange={e => updateSettings({ fxRates: { ...(settings.fxRates ?? DEFAULT_SETTINGS.fxRates), [cur]: parseFloat(e.target.value) || 1 } })}
+                    className="flex-1 text-sm font-black text-indigo-700 text-right border border-indigo-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-indigo-400 bg-indigo-50"
+                  />
+                  <span className="text-sm font-semibold text-slate-500">{CURRENCY_SYMBOLS[cur]}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Section>
+
+        {/* Cost rate default + fallback day rate */}
+        <Section
+          title="Cost rate defaults"
+          sub="Used when no per-role cost rate has been set on an estimate"
+          action={<button onClick={() => updateSettings({ defaultCostRatePct: DEFAULT_SETTINGS.defaultCostRatePct, fallbackDayRate: DEFAULT_SETTINGS.fallbackDayRate })} className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 transition-colors"><RotateCcw size={12} /> Reset</button>}
+        >
+          <div className="grid grid-cols-2 gap-4">
+            <Slider
+              label="Default cost rate (% of billing rate)"
+              value={settings.defaultCostRatePct ?? DEFAULT_SETTINGS.defaultCostRatePct}
+              min={20} max={90} step={5} unit="%"
+              onChange={v => updateSettings({ defaultCostRatePct: v })}
+            />
+            <div className="bg-white border border-slate-200 rounded-xl p-4">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-2">Fallback day rate (when no role rate set)</label>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-slate-400">{sym}</span>
+                <input
+                  type="number" min={0}
+                  value={Math.round((settings.fallbackDayRate ?? DEFAULT_SETTINGS.fallbackDayRate) * mult)}
+                  onChange={e => updateSettings({ fallbackDayRate: Math.round(Number(e.target.value) / mult) })}
+                  className="flex-1 text-sm font-black text-slate-700 text-right border border-slate-200 rounded-lg px-2 py-2 focus:outline-none focus:border-indigo-400"
+                />
+                <span className="text-xs text-slate-400">/day</span>
+              </div>
+            </div>
+          </div>
+        </Section>
+
+        {/* Contingency by risk band */}
+        <Section
+          title="Contingency by risk band"
+          sub="Default contingency % applied when a risk band is selected on an estimate"
+          action={<button onClick={() => updateSettings({ contingencyByBand: DEFAULT_SETTINGS.contingencyByBand })} className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 transition-colors"><RotateCcw size={12} /> Reset</button>}
+        >
+          <div className="grid grid-cols-5 gap-3">
+            {(['green', 'amber', 'red', 'black', 'unknown'] as const).map(band => {
+              const colors: Record<string, string> = { green: 'text-green-700 border-green-200 bg-green-50', amber: 'text-amber-700 border-amber-200 bg-amber-50', red: 'text-red-700 border-red-200 bg-red-50', black: 'text-slate-700 border-slate-300 bg-slate-100', unknown: 'text-slate-500 border-slate-200 bg-slate-50' }
+              const cfg = settings.contingencyByBand ?? DEFAULT_SETTINGS.contingencyByBand
+              return (
+                <div key={band} className={`rounded-xl p-3 border ${colors[band]}`}>
+                  <div className="text-xs font-bold uppercase tracking-wider mb-2 capitalize">{band}</div>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number" min={0} max={100}
+                      value={cfg[band]}
+                      onChange={e => updateSettings({ contingencyByBand: { ...cfg, [band]: Number(e.target.value) } })}
+                      className="w-full text-lg font-black text-center border-0 bg-transparent focus:outline-none focus:ring-1 focus:ring-indigo-300 rounded"
+                    />
+                    <span className="text-sm font-bold shrink-0">%</span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </Section>
+
+        {/* Margin traffic-light thresholds */}
+        <Section
+          title="Margin health thresholds"
+          sub="LM / GM % thresholds for green / amber / red traffic lights across the app"
+          action={<button onClick={() => updateSettings({ marginThresholds: DEFAULT_SETTINGS.marginThresholds })} className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 transition-colors"><RotateCcw size={12} /> Reset</button>}
+        >
+          <div className="grid grid-cols-2 gap-4">
+            <Slider
+              label="Green threshold (≥ X% = healthy)"
+              value={(settings.marginThresholds ?? DEFAULT_SETTINGS.marginThresholds).green}
+              min={10} max={60} step={5} unit="%"
+              onChange={v => updateSettings({ marginThresholds: { ...(settings.marginThresholds ?? DEFAULT_SETTINGS.marginThresholds), green: v } })}
+            />
+            <Slider
+              label="Amber threshold (≥ X% = caution)"
+              value={(settings.marginThresholds ?? DEFAULT_SETTINGS.marginThresholds).amber}
+              min={5} max={40} step={5} unit="%"
+              onChange={v => updateSettings({ marginThresholds: { ...(settings.marginThresholds ?? DEFAULT_SETTINGS.marginThresholds), amber: v } })}
+            />
+          </div>
+          <div className="mt-3 flex gap-3 text-xs">
+            <span className="text-green-700 font-semibold">Green ≥ {(settings.marginThresholds ?? DEFAULT_SETTINGS.marginThresholds).green}%</span>
+            <span className="text-amber-700 font-semibold">Amber ≥ {(settings.marginThresholds ?? DEFAULT_SETTINGS.marginThresholds).amber}%</span>
+            <span className="text-red-600 font-semibold">Red &lt; {(settings.marginThresholds ?? DEFAULT_SETTINGS.marginThresholds).amber}%</span>
+          </div>
+        </Section>
+
+        {/* OpEx monthly defaults */}
+        <Section
+          title="OpEx monthly defaults"
+          sub="Default monthly costs (GBP) inserted as OpEx streams when a project is configured"
+          action={<button onClick={() => updateSettings({ opexDefaults: DEFAULT_SETTINGS.opexDefaults })} className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 transition-colors"><RotateCcw size={12} /> Reset</button>}
+        >
+          <div className="grid grid-cols-3 gap-3">
+            {([
+              { key: 'cloudStandard'  as const, label: 'Cloud — standard'      },
+              { key: 'cloudComplex'   as const, label: 'Cloud — enterprise'     },
+              { key: 'onPremStandard' as const, label: 'On-prem — standard'     },
+              { key: 'onPremComplex'  as const, label: 'On-prem — enterprise'   },
+              { key: 'monitoring'     as const, label: 'Monitoring / observability' },
+            ]).map(row => {
+              const cfg = settings.opexDefaults ?? DEFAULT_SETTINGS.opexDefaults
+              return (
+                <div key={row.key} className="bg-white border border-slate-200 rounded-xl p-3">
+                  <label className="text-xs font-semibold text-slate-500 block mb-1.5">{row.label}</label>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-slate-400">£</span>
+                    <input
+                      type="number" min={0} step={100}
+                      value={cfg[row.key]}
+                      onChange={e => updateSettings({ opexDefaults: { ...cfg, [row.key]: Number(e.target.value) } })}
+                      className="flex-1 text-sm font-bold text-slate-700 text-right border border-slate-200 rounded px-2 py-1 focus:outline-none focus:border-indigo-400"
+                    />
+                    <span className="text-xs text-slate-400">/mo</span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          <p className="text-xs text-slate-400 mt-2">Values are in GBP and converted to the estimate's currency. Edit individual streams in the Stream Matrix after generation.</p>
+        </Section>
+
+        {/* Phase splits */}
+        <Section
+          title="Timeline phase splits"
+          sub="How total calendar duration is divided across the 7 delivery phases. Must sum to 100%."
+          action={<button onClick={() => updateSettings({ phaseSplits: DEFAULT_SETTINGS.phaseSplits })} className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 transition-colors"><RotateCcw size={12} /> Reset</button>}
+        >
+          {(() => {
+            const ps = settings.phaseSplits ?? DEFAULT_SETTINGS.phaseSplits
+            const total = Object.values(ps).reduce((a, b) => a + b, 0)
+            const phases = [
+              { key: 'discovery' as const, label: 'Discovery',      color: 'accent-indigo-600' },
+              { key: 'design'    as const, label: 'Design',          color: 'accent-blue-600' },
+              { key: 'build'     as const, label: 'Implementation',  color: 'accent-violet-600' },
+              { key: 'qa'        as const, label: 'QA / Testing',    color: 'accent-amber-600' },
+              { key: 'uat'       as const, label: 'UAT',             color: 'accent-orange-600' },
+              { key: 'golive'    as const, label: 'Go-Live',         color: 'accent-green-600' },
+              { key: 'hypercare' as const, label: 'Hypercare',       color: 'accent-teal-600' },
+            ]
+            return (
+              <>
+                <div className={`text-xs font-bold mb-3 ${Math.abs(total - 100) < 1 ? 'text-green-600' : 'text-red-600'}`}>
+                  Total: {total}% {Math.abs(total - 100) < 1 ? '✓' : `(should be 100%)`}
+                </div>
+                <div className="space-y-3">
+                  {phases.map(p => (
+                    <div key={p.key} className="flex items-center gap-3">
+                      <span className="text-xs text-slate-600 w-28 shrink-0">{p.label}</span>
+                      <input
+                        type="range" min={0} max={80} step={1}
+                        value={ps[p.key]}
+                        onChange={e => updateSettings({ phaseSplits: { ...ps, [p.key]: Number(e.target.value) } })}
+                        className={`flex-1 ${p.color}`}
+                      />
+                      <div className="flex items-center gap-1 shrink-0">
+                        <input
+                          type="number" min={0} max={100}
+                          value={ps[p.key]}
+                          onChange={e => updateSettings({ phaseSplits: { ...ps, [p.key]: Number(e.target.value) } })}
+                          className="w-12 text-xs font-bold text-right border border-slate-200 rounded px-1 py-1 focus:outline-none focus:border-indigo-400"
+                        />
+                        <span className="text-xs text-slate-400">%</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )
+          })()}
         </Section>
 
         {/* Standards bank editor */}

@@ -1,19 +1,26 @@
 import { useEstimatorStore, calcTotals } from '../../store/estimatorStore'
+import { useSettingsStore } from '../../store/settingsStore'
 import { ROLES, CURRENCY_SYMBOLS } from '../../data/roles'
 import type { Currency, RoleId } from '../../types'
 
 const CURRENCIES: Currency[] = ['GBP', 'USD', 'EUR', 'INR']
 
-function trafficLight(pct: number) {
-  if (pct >= 30) return 'text-green-700'
-  if (pct >= 15) return 'text-amber-700'
-  return 'text-red-600'
+function useTrafficLight() {
+  const { marginThresholds } = useSettingsStore(s => s.settings)
+  const green = marginThresholds?.green ?? 30
+  const amber = marginThresholds?.amber ?? 15
+  return (pct: number) => pct >= green ? 'text-green-700' : pct >= amber ? 'text-amber-700' : 'text-red-600'
 }
 
 export default function CostBuildupTab() {
+  const tl = useTrafficLight()
   const { getActive, setRate, updateField } = useEstimatorStore()
   const est = getActive()
   if (!est) return null
+
+  const { defaultCostRatePct, fallbackDayRate } = useSettingsStore(s => s.settings)
+  const costPct = (defaultCostRatePct ?? 55) / 100
+  const fallback = fallbackDayRate ?? 600
 
   const totals = calcTotals(est)
   const sym = totals.sym
@@ -29,7 +36,7 @@ export default function CostBuildupTab() {
   const roleRows = est.activeRoles.map(role => {
     const days = effortByRole[role] ?? 0
     const billRate = (est.rateCard[role] ?? ROLES[role]?.defaultRate ?? 0) * mult
-    const costRate = (costRateCard[role] ?? Math.round((est.rateCard[role] ?? ROLES[role]?.defaultRate ?? 600) * 0.55)) * mult
+    const costRate = (costRateCard[role] ?? Math.round((est.rateCard[role] ?? ROLES[role]?.defaultRate ?? fallback) * costPct)) * mult
     const rowRevenue = days * billRate
     const rowCost = days * costRate
     const lm = rowRevenue - rowCost
@@ -111,7 +118,7 @@ export default function CostBuildupTab() {
                     <div className="flex items-center justify-end gap-1">
                       <span className="text-xs text-slate-400">{sym}</span>
                       <input type="number" min={0}
-                        value={Math.round((costRateCard[row.role] ?? Math.round((est.rateCard[row.role] ?? ROLES[row.role]?.defaultRate ?? 600) * 0.55)) * mult)}
+                        value={Math.round((costRateCard[row.role] ?? Math.round((est.rateCard[row.role] ?? ROLES[row.role]?.defaultRate ?? fallback) * costPct)) * mult)}
                         onChange={e => setCostRate(row.role, Number(e.target.value))}
                         className="w-20 text-xs font-semibold text-slate-700 text-right border border-slate-200 rounded px-2 py-1.5 focus:outline-none focus:border-indigo-400 bg-slate-50" />
                     </div>
@@ -135,7 +142,7 @@ export default function CostBuildupTab() {
                   <td className="px-3 py-2.5 text-right text-xs font-semibold text-slate-800">{fmtFull(row.rowRevenue)}</td>
                   <td className="px-3 py-2.5 text-right text-xs font-semibold text-green-700">{fmtFull(row.lm)}</td>
                   <td className="px-3 py-2.5 text-right">
-                    <span className={`text-xs font-black ${trafficLight(row.lmPct)}`}>{Math.round(row.lmPct)}%</span>
+                    <span className={`text-xs font-black ${tl(row.lmPct)}`}>{Math.round(row.lmPct)}%</span>
                   </td>
                 </tr>
               ))}
@@ -152,7 +159,7 @@ export default function CostBuildupTab() {
                   <td className="px-3 py-3 text-right text-slate-700">{fmtFull(totalDirectCost)}</td>
                   <td className="px-3 py-3 text-right text-slate-800">{fmtFull(totalRevenue)}</td>
                   <td className="px-3 py-3 text-right text-green-700">{fmtFull(totalLM)}</td>
-                  <td className={`px-3 py-3 text-right ${trafficLight(totalLMPct)}`}>{Math.round(totalLMPct)}%</td>
+                  <td className={`px-3 py-3 text-right ${tl(totalLMPct)}`}>{Math.round(totalLMPct)}%</td>
                 </tr>
               </tfoot>
             )}
