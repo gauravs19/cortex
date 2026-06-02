@@ -253,14 +253,14 @@ export const WORK_TYPE_SCOPE_QUESTIONS: Record<string, ScopeQuestion[]> = {
 // ── Work type definitions ─────────────────────────────────────
 
 export const WORK_TYPES = [
-  { value: '',                       label: 'Generic',              icon: '⚙️' },
-  { value: 'digital-transformation', label: 'Digital Transform',    icon: '🔄' },
-  { value: 'ai-ml',                  label: 'AI / ML',              icon: '🧠' },
-  { value: 'erp',                    label: 'ERP',                  icon: '🏢' },
-  { value: 'cloud-migration',        label: 'Cloud Migration',      icon: '☁️' },
-  { value: 'data-platform',          label: 'Data Platform',        icon: '📊' },
-  { value: 'security',               label: 'Security',             icon: '🔒' },
-  { value: 'managed-service',        label: 'Managed Service',      icon: '🛠️' },
+  { value: '',                       label: 'Generic',              icon: '⚙️', desc: 'Custom or mixed project — configure all dimensions manually' },
+  { value: 'digital-transformation', label: 'Digital Transform',   icon: '🔄', desc: 'Digitise business processes, modernise a platform or build a new product' },
+  { value: 'ai-ml',                  label: 'AI / ML',             icon: '🧠', desc: 'Build, train or deploy ML models, LLM apps or intelligent automation' },
+  { value: 'erp',                    label: 'ERP / Enterprise',    icon: '🏢', desc: 'Implement, migrate or upgrade ERP (SAP, Oracle, Dynamics, Workday)' },
+  { value: 'cloud-migration',        label: 'Cloud Migration',     icon: '☁️', desc: 'Lift-and-shift, re-platform or re-architect workloads to the cloud' },
+  { value: 'data-platform',          label: 'Data Platform',       icon: '📊', desc: 'Build data pipelines, warehouses, lakehouses or self-serve BI' },
+  { value: 'security',               label: 'Security',            icon: '🔒', desc: 'Security assessment, hardening, identity, compliance or pen-testing' },
+  { value: 'managed-service',        label: 'Managed Service',     icon: '🛠️', desc: 'Ongoing application, infrastructure or security support and operations' },
 ]
 
 // Smart defaults per work type — pre-fills the configurator
