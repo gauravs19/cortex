@@ -1,19 +1,20 @@
 import type { RoleId, RoleDef } from '../types'
 
+// Default rates in USD (base currency)
 export const ROLES: Record<RoleId, RoleDef> = {
-  SA:  { name: 'Solution Architect',       defaultRate: 900 },
-  SD:  { name: 'Senior Developer',         defaultRate: 700 },
-  MD:  { name: 'Mid Developer',            defaultRate: 550 },
-  JD:  { name: 'Junior Developer',         defaultRate: 350 },
-  QA:  { name: 'QA Engineer',              defaultRate: 500 },
-  BA:  { name: 'Business Analyst',         defaultRate: 600 },
-  UX:  { name: 'UX / Product Designer',    defaultRate: 600 },
-  DO:  { name: 'DevOps Engineer',          defaultRate: 650 },
-  PM:  { name: 'Project Manager',          defaultRate: 650 },
-  DM:  { name: 'Delivery Manager',         defaultRate: 800 },
-  DE:  { name: 'Data Engineer',            defaultRate: 700 },
-  CM:  { name: 'Change Manager',           defaultRate: 600 },
-  SE:  { name: 'Security Engineer',        defaultRate: 750 },
+  SA:  { name: 'Solution Architect',       defaultRate: 1150 },
+  SD:  { name: 'Senior Developer',         defaultRate: 900 },
+  MD:  { name: 'Mid Developer',            defaultRate: 700 },
+  JD:  { name: 'Junior Developer',         defaultRate: 450 },
+  QA:  { name: 'QA Engineer',              defaultRate: 650 },
+  BA:  { name: 'Business Analyst',         defaultRate: 750 },
+  UX:  { name: 'UX / Product Designer',    defaultRate: 750 },
+  DO:  { name: 'DevOps Engineer',          defaultRate: 825 },
+  PM:  { name: 'Project Manager',          defaultRate: 825 },
+  DM:  { name: 'Delivery Manager',         defaultRate: 1025 },
+  DE:  { name: 'Data Engineer',            defaultRate: 900 },
+  CM:  { name: 'Change Manager',           defaultRate: 750 },
+  SE:  { name: 'Security Engineer',        defaultRate: 950 },
 }
 
 export const DEFAULT_ROLES: RoleId[] = ['SA', 'SD', 'MD', 'QA', 'BA', 'PM']
@@ -26,8 +27,9 @@ export const CURRENCY_SYMBOLS: Record<string, string> = {
   GBP: '£', USD: '$', EUR: '€', INR: '₹',
 }
 
+// USD = 1.0 base; other currencies expressed as "1 USD = X"
 export const CURRENCY_RATE_MULTIPLIERS: Record<string, number> = {
-  GBP: 1, USD: 1.27, EUR: 1.17, INR: 105,
+  USD: 1, GBP: 0.79, EUR: 0.92, INR: 82.7,
 }
 
 export const CATEGORY_LABELS: Record<string, string> = {

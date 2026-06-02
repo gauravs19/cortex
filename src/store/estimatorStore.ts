@@ -504,20 +504,33 @@ export const useEstimatorStore = create<EstimatorStore>()(
       partialize: (s) => ({ estimates: s.estimates, activeId: s.activeId }),
       onRehydrateStorage: () => (state) => {
         if (!state) return
-        // Migrate: estimates without estimationMode default to 'quick' (they have filled streams)
-        state.estimates = state.estimates.map(e => ({
-          ...e,
-          estimationMode: e.estimationMode ?? 'quick',
-          wizardCompleted: e.wizardCompleted ?? true,
-          lineItems: e.lineItems ?? [],
-          features: e.features ?? [],
-          assumptions: e.assumptions ?? [],
-          pnlAdjustments: e.pnlAdjustments ?? [],
-          notes: e.notes ?? '',
-          costRateCard: e.costRateCard ?? getSettingsCostRateCard(),
-          salesCommissionPct: e.salesCommissionPct ?? 5,
-          gaOverheadPct: e.gaOverheadPct ?? 8,
-        }))
+        // Detect if stored rates are in old GBP base (fxRates had USD key, now has GBP key).
+        // If SA rate < 800, it was stored in GBP — convert to USD by dividing by 0.79.
+        const needsGbpToUsdMigration = (rc: Partial<Record<string, number>>) =>
+          Object.values(rc).some(v => v !== undefined && v < 800)
+        const convertRates = (rc: Partial<Record<string, number>>) =>
+          Object.fromEntries(Object.entries(rc).map(([k, v]) => [k, v !== undefined ? Math.round(v / 0.79) : v]))
+
+        state.estimates = state.estimates.map(e => {
+          const rateCard = (needsGbpToUsdMigration(e.rateCard) ? convertRates(e.rateCard) : e.rateCard) as typeof e.rateCard
+          const costRateCard = e.costRateCard && needsGbpToUsdMigration(e.costRateCard)
+            ? convertRates(e.costRateCard) as typeof e.costRateCard
+            : (e.costRateCard ?? getSettingsCostRateCard())
+          return {
+            ...e,
+            rateCard,
+            costRateCard,
+            estimationMode: e.estimationMode ?? 'quick',
+            wizardCompleted: e.wizardCompleted ?? true,
+            lineItems: e.lineItems ?? [],
+            features: e.features ?? [],
+            assumptions: e.assumptions ?? [],
+            pnlAdjustments: e.pnlAdjustments ?? [],
+            notes: e.notes ?? '',
+            salesCommissionPct: e.salesCommissionPct ?? 5,
+            gaOverheadPct: e.gaOverheadPct ?? 8,
+          }
+        })
       },
     }
   )
@@ -527,8 +540,9 @@ export const useEstimatorStore = create<EstimatorStore>()(
 
 function currencyMult(c: string) {
   const { fxRates } = useSettingsStore.getState().settings
-  const rates = fxRates ?? { USD: 1.27, EUR: 1.17, INR: 105 }
-  return c === 'GBP' ? 1 : c === 'USD' ? rates.USD : c === 'EUR' ? rates.EUR : rates.INR
+  // USD = 1.0 base; fxRates stores "1 USD = X" for GBP, EUR, INR
+  const rates = fxRates as Record<string, number> ?? { GBP: 0.79, EUR: 0.92, INR: 82.7 }
+  return c === 'USD' ? 1 : rates[c] ?? 1
 }
 function currencySym(c: string) {
   return c === 'GBP' ? '£' : c === 'USD' ? '$' : c === 'EUR' ? '€' : '₹'
