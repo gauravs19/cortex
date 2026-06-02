@@ -39,6 +39,15 @@ export type ResourcePlan = Record<number, Partial<Record<RoleId, number>>>
 // Assumptions
 export interface Assumption { id: string; text: string; impact: 'low' | 'medium' | 'high' }
 
+// P&L manual adjustment lines
+// amount: positive = adds to margin (e.g. licensed software sold with markup)
+//         negative = reduces margin (e.g. T&E, subcontractor cost, discount)
+// appliesAt: 'lm' = inserted between direct cost and Labour Margin
+//            'gm' = inserted between LM and Gross Margin
+export interface PnlAdjustment {
+  id: string; label: string; amount: number; appliesAt: 'lm' | 'gm'
+}
+
 // Feature groups — requirements/stories that group line items
 export interface EstimateFeature { id: string; name: string; collapsed?: boolean }
 
@@ -61,6 +70,7 @@ export interface Estimate {
   targetBudget?: number; targetEffort?: number
   resourcePlan?: ResourcePlan    // #1
   assumptions: Assumption[]      // #6
+  pnlAdjustments: PnlAdjustment[]
   notes?: string
   scopeAnswers?: Record<string, string | string[]>
   createdAt: string; updatedAt: string

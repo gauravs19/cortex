@@ -41,12 +41,32 @@ test.describe('Estimator — summary bar', () => {
   })
 })
 
-test.describe('Estimator — Cost tab', () => {
+test.describe('Estimator — Cost Build-up tab', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/')
     await page.getByRole('button', { name: /Start estimating/i }).click()
     await page.waitForURL(/\/estimate\//)
     await page.getByRole('button', { name: /Cost Build-up/i }).click()
+    await page.waitForTimeout(300)
+  })
+
+  test('rate card table is visible', async ({ page }) => {
+    await expect(page.getByText('Rate card — cost vs billing by role')).toBeVisible()
+  })
+
+  test('delivery currency selector works', async ({ page }) => {
+    await page.getByRole('button', { name: /£ GBP/i }).click()
+    await page.waitForTimeout(200)
+    await expect(page.getByText('Delivery currency')).toBeVisible()
+  })
+})
+
+test.describe('Estimator — P&L tab', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/')
+    await page.getByRole('button', { name: /Start estimating/i }).click()
+    await page.waitForURL(/\/estimate\//)
+    await page.getByRole('button', { name: 'P&L', exact: true }).click()
     await page.waitForTimeout(300)
   })
 
@@ -59,18 +79,27 @@ test.describe('Estimator — Cost tab', () => {
   })
 
   test('Revenue row shows billing currency annotation when currencies differ', async ({ page }) => {
-    // Cost tab beforeEach already navigated here — set delivery to GBP
+    await page.getByRole('button', { name: /Cost Build-up/i }).click()
+    await page.waitForTimeout(200)
     await page.getByRole('button', { name: /£ GBP/i }).click()
     await page.waitForTimeout(200)
-    // Set billing to USD via header select
     await page.locator('select[title*="Billing currency"]').selectOption('USD')
-    await page.waitForTimeout(400)
-    // Revenue row should now say "billed as USD"
+    await page.waitForTimeout(300)
+    await page.getByRole('button', { name: 'P&L', exact: true }).click()
+    await page.waitForTimeout(300)
     await expect(page.getByText(/billed as USD/i)).toBeVisible()
   })
 
-  test('rate card table is visible with role rows', async ({ page }) => {
-    await expect(page.getByText('Rate card & labour margin by role')).toBeVisible()
+  test('P&L parameters sliders are visible', async ({ page }) => {
+    await expect(page.getByText('P&L parameters')).toBeVisible()
+    await expect(page.getByText('Target LM floor')).toBeVisible()
+    await expect(page.getByText('Delivery overhead').first()).toBeVisible()
+  })
+
+  test('headline cards show Revenue, LM, GM, EBITDA', async ({ page }) => {
+    await expect(page.getByText('Labour Margin').first()).toBeVisible()
+    await expect(page.getByText('Gross Margin').first()).toBeVisible()
+    await expect(page.getByText('EBITDA').first()).toBeVisible()
   })
 })
 

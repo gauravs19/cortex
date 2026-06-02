@@ -63,6 +63,7 @@ function createEstimate(name = '', workType = ''): Estimate {
     targetBudget: 0,
     targetEffort: 0,
     assumptions: [],
+    pnlAdjustments: [],
     notes: '',
     createdAt: now,
     updatedAt: now,
@@ -105,6 +106,10 @@ export interface EstimatorStore {
   setRate: (role: RoleId, rate: number) => void
   setContingency: (pct: number, locked: boolean) => void
   importFromJson: (data: Partial<Estimate>) => string
+  // P&L adjustments
+  addPnlAdjustment: (label: string, amount: number, appliesAt: import('../types').PnlAdjustment['appliesAt']) => void
+  updatePnlAdjustment: (id: string, patch: Partial<import('../types').PnlAdjustment>) => void
+  removePnlAdjustment: (id: string) => void
 }
 
 export const useEstimatorStore = create<EstimatorStore>()(
@@ -436,6 +441,43 @@ export const useEstimatorStore = create<EstimatorStore>()(
         }))
       },
 
+      addPnlAdjustment: (label, amount, appliesAt) => {
+        const { activeId } = get()
+        if (!activeId) return
+        const id = generateId()
+        set(s => ({
+          estimates: s.estimates.map(e =>
+            e.id === activeId
+              ? { ...e, pnlAdjustments: [...(e.pnlAdjustments ?? []), { id, label, amount, appliesAt }], updatedAt: new Date().toISOString() }
+              : e
+          ),
+        }))
+      },
+
+      updatePnlAdjustment: (id, patch) => {
+        const { activeId } = get()
+        if (!activeId) return
+        set(s => ({
+          estimates: s.estimates.map(e =>
+            e.id === activeId
+              ? { ...e, pnlAdjustments: (e.pnlAdjustments ?? []).map(a => a.id === id ? { ...a, ...patch } : a), updatedAt: new Date().toISOString() }
+              : e
+          ),
+        }))
+      },
+
+      removePnlAdjustment: (id) => {
+        const { activeId } = get()
+        if (!activeId) return
+        set(s => ({
+          estimates: s.estimates.map(e =>
+            e.id === activeId
+              ? { ...e, pnlAdjustments: (e.pnlAdjustments ?? []).filter(a => a.id !== id), updatedAt: new Date().toISOString() }
+              : e
+          ),
+        }))
+      },
+
       forkEstimate: () => {
         const { activeId, estimates } = get()
         const src = estimates.find(e => e.id === activeId)
@@ -469,6 +511,7 @@ export const useEstimatorStore = create<EstimatorStore>()(
           lineItems: e.lineItems ?? [],
           features: e.features ?? [],
           assumptions: e.assumptions ?? [],
+          pnlAdjustments: e.pnlAdjustments ?? [],
           notes: e.notes ?? '',
           costRateCard: e.costRateCard ?? getSettingsCostRateCard(),
           salesCommissionPct: e.salesCommissionPct ?? 5,
@@ -524,19 +567,52 @@ export function calcTotals(est: Estimate) {
   const baseDays = Object.values(effortByRole).reduce((a, b) => a + (b ?? 0), 0)
   const contingencyDays = Math.round(baseDays * est.contingencyPct / 100)
   const totalDays = baseDays + contingencyDays
+  const contingencyFactor = 1 + est.contingencyPct / 100
 
-  let baseCost = 0
+  // ── Two-rate P&L model ────────────────────────────────────────
+  // Revenue side: billing rates (what the client pays)
+  let baseRevenue = 0
   for (const [role, days] of Object.entries(effortByRole) as [RoleId, number][]) {
-    const rate = (est.rateCard[role] ?? ROLES[role]?.defaultRate ?? 0) * mult
-    baseCost += days * rate
+    baseRevenue += days * (est.rateCard[role] ?? ROLES[role]?.defaultRate ?? 0) * mult
   }
-  const contingencyCost = baseCost * est.contingencyPct / 100
-  const totalCost = baseCost + contingencyCost
-  const overhead = totalCost * est.overheadPct / 100
-  const costWithOverhead = totalCost + overhead
-  const sellPrice = costWithOverhead / (1 - est.targetMarginPct / 100)
-  const margin = sellPrice - costWithOverhead
-  const impliedMarginPct = sellPrice > 0 ? (margin / sellPrice) * 100 : 0
+  const revenue = baseRevenue * contingencyFactor
+
+  // Cost side: cost rates (what the firm pays the team)
+  const costRates = est.costRateCard ?? {}
+  let baseDirectCost = 0
+  for (const [role, days] of Object.entries(effortByRole) as [RoleId, number][]) {
+    const costRate = (costRates[role as RoleId] ?? Math.round((est.rateCard[role as RoleId] ?? ROLES[role as RoleId]?.defaultRate ?? 600) * 0.55)) * mult
+    baseDirectCost += days * costRate
+  }
+  const directCost = baseDirectCost * contingencyFactor
+
+  // P&L adjustments
+  const pnlAdj = est.pnlAdjustments ?? []
+  const lmAdjTotal = pnlAdj.filter(a => a.appliesAt === 'lm').reduce((s, a) => s + a.amount * mult, 0)
+  const gmAdjTotal = pnlAdj.filter(a => a.appliesAt === 'gm').reduce((s, a) => s + a.amount * mult, 0)
+
+  // Labour Margin = Revenue − Direct cost ± LM adjustments
+  const labourMargin = revenue - directCost + lmAdjTotal
+  const lmPct = revenue > 0 ? (labourMargin / revenue) * 100 : 0
+
+  // Gross Margin = LM − Delivery overhead ± GM adjustments
+  const deliveryOverhead = revenue * est.overheadPct / 100
+  const grossMargin = labourMargin - deliveryOverhead + gmAdjTotal
+  const gmPct = revenue > 0 ? (grossMargin / revenue) * 100 : 0
+
+  // EBITDA = GM − Sales commission − G&A
+  const salesComm = revenue * est.salesCommissionPct / 100
+  const gaOverhead = revenue * est.gaOverheadPct / 100
+  const ebitda = grossMargin - salesComm - gaOverhead
+  const ebitdaPct = revenue > 0 ? (ebitda / revenue) * 100 : 0
+
+  // Legacy aliases kept for backward compat (summary bar, print export, etc.)
+  const sellPrice = revenue          // billing revenue IS the sell price
+  const totalCost = directCost       // actual cost to the firm
+  const impliedMarginPct = lmPct     // LM% is the primary margin metric
+  // keep baseCost / contingencyCost for any callers that use them
+  const baseCost = baseRevenue       // kept for compat — billing base before contingency
+  const contingencyCost = revenue - baseRevenue
 
   const opexMonthly = opexStreams.reduce((sum, s) => sum + ((s.monthlyRate ?? 0) * mult), 0)
   const opexAnnual = opexMonthly * 12
@@ -550,8 +626,15 @@ export function calcTotals(est: Estimate) {
   return {
     effortByRole,
     baseDays, contingencyDays, totalDays,
+    // Revenue / cost
+    revenue, directCost, lmAdjTotal, gmAdjTotal,
+    labourMargin, lmPct,
+    deliveryOverhead, grossMargin, gmPct,
+    salesComm, gaOverhead, ebitda, ebitdaPct,
+    // Legacy aliases
     baseCost, contingencyCost, totalCost,
-    overhead, costWithOverhead, sellPrice, margin, impliedMarginPct,
+    overhead: deliveryOverhead, costWithOverhead: directCost + deliveryOverhead,
+    sellPrice, margin: labourMargin, impliedMarginPct,
     opexMonthly, opexAnnual, opexProjectTotal,
     calendarWeeks, sprints, sym, mult, billSym, billMult,
   }
