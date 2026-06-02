@@ -44,8 +44,14 @@ export default function Estimator() {
   const totals = calcTotals(est)
   const sym = totals.sym
 
+  const { billSym, billMult } = totals
+  const billCurrency = est.billingCurrency ?? est.currency
+  const sellPriceBilled = totals.sellPrice * (billMult / totals.mult)
+
   const fmt = (n: number) =>
     est.currency === 'INR' ? `${sym}${Math.round(n).toLocaleString()}` : `${sym}${Math.round(n / 1000)}k`
+  const fmtBill = (n: number) =>
+    billCurrency === 'INR' ? `${billSym}${Math.round(n).toLocaleString()}` : `${billSym}${Math.round(n / 1000)}k`
 
   // #10 auto-save flash wrapper
   const touch = <K extends keyof typeof est>(k: K, v: typeof est[K]) => {
@@ -152,24 +158,44 @@ export default function Estimator() {
           <SummaryPill label="Total effort" value={`${totals.totalDays}d`} highlight />
           <div className="h-4 w-px bg-indigo-700" />
           <SummaryPill label="Direct cost" value={fmt(totals.totalCost)} />
-          <SummaryPill label="Sell price" value={fmt(totals.sellPrice)} highlight />
+          <SummaryPill
+            label={billCurrency !== est.currency ? `Sell (${billCurrency})` : 'Sell price'}
+            value={fmtBill(sellPriceBilled)}
+            highlight
+          />
           <SummaryPill label="Margin" value={`${totals.impliedMarginPct.toFixed(0)}%`} />
           <div className="h-4 w-px bg-indigo-700" />
           <SummaryPill label="Duration" value={`${totals.calendarWeeks}w`} />
           <SummaryPill label="Sprints" value={`${totals.sprints}`} />
-          {/* #8 Budget gap */}
+          {/* Budget gap */}
           {(est.targetBudget ?? 0) > 0 && (() => {
-            const budget = est.targetBudget! * totals.mult
-            const delta = budget - totals.sellPrice
+            const budget = est.targetBudget! * billMult
+            const delta = budget - sellPriceBilled
             const over = delta < 0
             return (
               <>
                 <div className="h-4 w-px bg-indigo-700" />
                 <div className="text-center shrink-0">
                   <div className={`text-sm font-black ${over ? 'text-red-400' : 'text-green-400'}`}>
-                    {over ? '▲' : '▼'} {sym}{Math.round(Math.abs(delta) / 1000)}k
+                    {over ? '▲' : '▼'} {billSym}{Math.round(Math.abs(delta) / 1000)}k
                   </div>
                   <div className="text-xs text-indigo-400 mt-0.5">{over ? 'over budget' : 'under budget'}</div>
+                </div>
+              </>
+            )
+          })()}
+          {/* Effort gap */}
+          {(est.targetEffort ?? 0) > 0 && (() => {
+            const delta = (est.targetEffort ?? 0) - totals.totalDays
+            const over = delta < 0
+            return (
+              <>
+                <div className="h-4 w-px bg-indigo-700" />
+                <div className="text-center shrink-0">
+                  <div className={`text-sm font-black ${over ? 'text-red-400' : 'text-green-400'}`}>
+                    {over ? '▲' : '▼'} {Math.abs(delta)}d
+                  </div>
+                  <div className="text-xs text-indigo-400 mt-0.5">{over ? 'over effort' : 'under effort'}</div>
                 </div>
               </>
             )
