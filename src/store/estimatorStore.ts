@@ -481,9 +481,20 @@ export const useEstimatorStore = create<EstimatorStore>()(
 
 // ── Derived helpers ──────────────────────────────────────────
 
+function currencyMult(c: string) {
+  return c === 'GBP' ? 1 : c === 'USD' ? 1.27 : c === 'EUR' ? 1.17 : 105
+}
+function currencySym(c: string) {
+  return c === 'GBP' ? '£' : c === 'USD' ? '$' : c === 'EUR' ? '€' : '₹'
+}
+
 export function calcTotals(est: Estimate) {
-  const sym = est.currency === 'GBP' ? '£' : est.currency === 'USD' ? '$' : est.currency === 'EUR' ? '€' : '₹'
-  const mult = est.currency === 'GBP' ? 1 : est.currency === 'USD' ? 1.27 : est.currency === 'EUR' ? 1.17 : 105
+  const sym = currencySym(est.currency)
+  const mult = currencyMult(est.currency)
+  // Billing currency — applies to the sell/revenue side only
+  const billCurrency = est.billingCurrency ?? est.currency
+  const billSym = currencySym(billCurrency)
+  const billMult = currencyMult(billCurrency)
 
   const opexStreams = est.streams.filter(s => s.costType === 'opex')
 
@@ -542,6 +553,6 @@ export function calcTotals(est: Estimate) {
     baseCost, contingencyCost, totalCost,
     overhead, costWithOverhead, sellPrice, margin, impliedMarginPct,
     opexMonthly, opexAnnual, opexProjectTotal,
-    calendarWeeks, sprints, sym, mult,
+    calendarWeeks, sprints, sym, mult, billSym, billMult,
   }
 }
