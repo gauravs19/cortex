@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { BarChart3, Shield, DollarSign, Calendar, Download, Settings, List, Share2, Check, Users, FileText, SlidersHorizontal } from 'lucide-react'
+import { BarChart3, Shield, DollarSign, TrendingUp, Calendar, Download, Settings, List, Share2, Check, Users, FileText, SlidersHorizontal } from 'lucide-react'
 import { useEstimatorStore, calcTotals } from '../store/estimatorStore'
 import StreamsTab from '../components/tabs/StreamsTab'
 import RiskTab from '../components/tabs/RiskTab'
-import CostTab from '../components/tabs/CostTab'
+import CostBuildupTab from '../components/tabs/CostBuildupTab'
+import PnLTab from '../components/tabs/PnLTab'
 import TimelineTab from '../components/tabs/TimelineTab'
 import LineItemsTab from '../components/tabs/LineItemsTab'
 import ResourceTab from '../components/tabs/ResourceTab'
@@ -19,6 +20,7 @@ const TABS = [
   { id: 'streams',   label: 'Stream Matrix',   icon: BarChart3 },
   { id: 'risk',      label: 'Risk & Effort',   icon: Shield },
   { id: 'cost',      label: 'Cost Build-up',   icon: DollarSign },
+  { id: 'pnl',       label: 'P&L',             icon: TrendingUp },
   { id: 'timeline',  label: 'Timeline',        icon: Calendar },
   { id: 'resource',  label: 'Resource Plan',   icon: Users },
 ]
@@ -162,13 +164,18 @@ export default function Estimator() {
             muted={totals.totalDays === 0}
           />
           <div className="h-4 w-px bg-indigo-700" />
-          <SummaryPill label="Direct cost" value={fmt(totals.totalCost)} />
+          <SummaryPill label="Direct cost" value={fmt(totals.directCost)} />
           <SummaryPill
             label={billCurrency !== est.currency ? `Sell (${billCurrency})` : 'Sell price'}
             value={fmtBill(sellPriceBilled)}
             highlight
           />
-          <SummaryPill label="Margin" value={`${totals.impliedMarginPct.toFixed(0)}%`} />
+          <SummaryPill
+            label="LM"
+            value={`${totals.lmPct.toFixed(0)}%`}
+            highlight={totals.lmPct >= (est.targetMarginPct ?? 0)}
+            muted={totals.lmPct > 0 && totals.lmPct < (est.targetMarginPct ?? 0)}
+          />
           <div className="h-4 w-px bg-indigo-700" />
           <SummaryPill label="Duration" value={`${totals.calendarWeeks}w`} />
           <SummaryPill label="Sprints" value={`${totals.sprints}`} />
@@ -237,7 +244,8 @@ export default function Estimator() {
         {activeTab === 'lineitems' && <LineItemsTab />}
         {activeTab === 'streams'   && <StreamsTab />}
         {activeTab === 'risk'      && <RiskTab />}
-        {activeTab === 'cost'      && <CostTab />}
+        {activeTab === 'cost'      && <CostBuildupTab />}
+        {activeTab === 'pnl'       && <PnLTab />}
         {activeTab === 'timeline'  && <TimelineTab />}
         {activeTab === 'resource'  && <ResourceTab />}
       </main>
